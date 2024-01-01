@@ -18,11 +18,11 @@ public class MethodHelper {
 	 * @return an empty Optional if no method with that name is found
 	 */
 	public static Optional<OverloadedMethod> find(Class<?> clazz, String name) {
-		return findMatching(clazz, name, f -> !ReflectionModifier.isStatic(f));
+		return findMatching(clazz, name, f -> !ReflectionHelper.isStatic(f));
 	}
 
 	public static Optional<OverloadedMethod> findStatic(Class<?> clazz, String name) {
-		return findMatching(clazz, name, ReflectionModifier::isStatic);
+		return findMatching(clazz, name, ReflectionHelper::isStatic);
 	}
 
 	public static Optional<OverloadedMethod> findMatching(Class<?> clazz, String name, Predicate<Method> predicate) {
@@ -38,7 +38,7 @@ public class MethodHelper {
 				continue;
 			}
 			try {
-				foundMethods.add(ReflectionModifier.LOOKUP.unreflect(m));
+				foundMethods.add(ReflectionHelper.LOOKUP.unreflect(m));
 			} catch (IllegalAccessException e) {
 				continue;
 			}

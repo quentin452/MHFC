@@ -1,100 +1,67 @@
 package mhfc.net.common.quests;
 
-import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
-
-import com.google.gson.JsonElement;
-import com.mojang.authlib.GameProfile;
 
 import mhfc.net.MHFCMain;
 import mhfc.net.common.core.registry.MHFCExplorationRegistry;
 import mhfc.net.common.core.registry.MHFCQuestRegistry;
-import mhfc.net.common.core.registry.MHFCSoundRegistry;
-import mhfc.net.common.eventhandler.MHFCTickHandler;
-import mhfc.net.common.eventhandler.TickPhase;
 import mhfc.net.common.network.PacketPipeline;
 import mhfc.net.common.network.message.quest.MessageMissionStatus;
 import mhfc.net.common.network.message.quest.MessageMissionUpdate;
-import mhfc.net.common.quests.api.IQuestDefinition;
-import mhfc.net.common.quests.api.IQuestReward;
-import mhfc.net.common.quests.api.ISpawnInformation;
+import mhfc.net.common.quests.api.QuestDefinition;
 import mhfc.net.common.quests.api.QuestGoal;
 import mhfc.net.common.quests.api.QuestGoalSocket;
 import mhfc.net.common.quests.properties.GroupProperty;
-import mhfc.net.common.quests.rewards.NullReward;
-import mhfc.net.common.quests.spawns.NoSpawn;
 import mhfc.net.common.quests.world.IQuestAreaSpawnController;
 import mhfc.net.common.quests.world.QuestFlair;
 import mhfc.net.common.util.PlayerMap;
+import mhfc.net.common.util.StagedFuture;
 import mhfc.net.common.world.area.IActiveArea;
 import mhfc.net.common.world.area.IAreaType;
 import mhfc.net.common.world.exploration.IExplorationManager;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.SoundCategory;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraft.util.ChatComponentText;
 
 public class Mission implements QuestGoalSocket, AutoCloseable {
 
-
 	public static final String KEY_TYPE_RUNNING = "running";
-	private static final int DELAY_BEFORE_TP_IN_SECONDS = 20;
 
-	private static enum QuestState {
-		PENDING,
-		RUNNING,
-		FINISHED_SUCCESS,
-		FINISHED_FAIL,
-		RESIGNED;
-	}
-
-	private static enum PlayerState {
-		IN_TOWN,
-		ON_QUEST,
-		WAITING_FOR_BACK_TP;
+	enum QuestState {
+		pending,
+		running,
+		finished,
+		resigned;
 	}
 
 	private static class QuestingPlayerState {
-		public GameProfile player;
+		public EntityPlayerMP player;
 		public boolean vote;
 		@SuppressWarnings("unused")
 		public boolean restoreInventory;
 		@SuppressWarnings("unused")
 		public boolean reward;
 		public IExplorationManager previousManager;
-		public JsonElement previousSaveData;
-		public PlayerState playerState;
 
-		public QuestingPlayerState(GameProfile p, boolean vote, boolean restoreInventory, boolean reward) {
+		public QuestingPlayerState(EntityPlayerMP p, boolean vote, boolean restoreInventory, boolean reward) {
 			this.player = p;
 			this.restoreInventory = restoreInventory;
 			this.vote = vote;
 			this.reward = reward;
-			// this bind should also consider player if it dies once ! ,
 			this.previousManager = MHFCExplorationRegistry.getExplorationManagerFor(p);
-			this.previousSaveData = this.previousManager.saveState();
-			this.playerState = PlayerState.IN_TOWN;
-		}
-
-		public EntityPlayerMP getPlayerEntity() {
-			return FMLCommonHandler.instance().getMinecraftServerInstance().getPlayerList()
-					.getPlayerByUUID(player.getId());
 		}
 	}
 
-	private static QuestingPlayerState newAttribute(GameProfile player) {
+	private static QuestingPlayerState newAttribute(EntityPlayerMP player) {
 		return new QuestingPlayerState(player, false, true, false);
 	}
 
 	private final String missionID;
-	private IQuestDefinition originalDescription;
+	private QuestDefinition originalDescription;
 
 	private PlayerMap<QuestingPlayerState> playerAttributes;
 	private int maxPlayerCount;
@@ -107,9 +74,9 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 	 * Not set before the {@link StagedFuture} from that the area is retrieved from is complete.
 	 */
 	protected IActiveArea questingArea;
+	protected QuestExplorationManager explorationManager;
 
-	protected IQuestReward reward;
-	protected ISpawnInformation spawns;
+	protected int reward;
 	protected int fee;
 
 	private boolean closed;
@@ -119,11 +86,10 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 			QuestGoal goal,
 			GroupProperty goalProperties,
 			int maxPartySize,
-			IQuestReward reward,
-			ISpawnInformation spawns,
+			int reward,
 			int fee,
 			CompletionStage<IActiveArea> activeArea,
-			IQuestDefinition originalDescription) {
+			QuestDefinition originalDescription) {
 		this.missionID = Objects.requireNonNull(missionID);
 
 		this.playerAttributes = new PlayerMap<>();
@@ -134,10 +100,9 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 		activeArea.thenAccept(this::onAreaFinished);
 		goal.setSocket(this);
 
-		this.reward = reward == null ? new NullReward() : reward;
-		this.spawns = spawns == null ? NoSpawn.INSTANCE : spawns;
+		this.reward = reward;
 		this.fee = fee;
-		this.state = QuestState.PENDING;
+		this.state = QuestState.pending;
 		this.originalDescription = originalDescription;
 		this.maxPlayerCount = maxPartySize;
 
@@ -156,19 +121,21 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 		return questGoal;
 	}
 
+	public int getReward() {
+		return reward;
+	}
+
 	public int getFee() {
 		return fee;
 	}
 
 	@Override
 	public void questGoalStatusNotification(QuestGoal goal, EnumSet<QuestStatus> newStatus) {
-		if (newStatus.contains(QuestStatus.Fulfilled) && state == QuestState.RUNNING) {
+		if (newStatus.contains(QuestStatus.Fulfilled)) {
 			onSuccess();
-			this.state = QuestState.FINISHED_SUCCESS;
 		}
-		if (newStatus.contains(QuestStatus.Failed) && state == QuestState.RUNNING) {
+		if (newStatus.contains(QuestStatus.Failed)) {
 			onFail();
-			this.state = QuestState.FINISHED_FAIL;
 		}
 		updatePlayers();
 	}
@@ -183,61 +150,42 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 	}
 
 	private void tryStart() {
-		if (state == QuestState.PENDING && canStart()) {
-			this.state = QuestState.RUNNING;
+		if (canStart()) {
 			onStart();
 			resetVotes();
 		}
 	}
 
 	protected void onFail() {
-		for (EntityPlayerMP player : getPlayerEntities()) {
-			player.world.playSound(
-					null,
-					player.getPosition(),
-					MHFCSoundRegistry.getRegistry().questNotification,
-					SoundCategory.MUSIC,
-					2F,
-					1F);
-			player.sendMessage(new TextComponentTranslation("mhfc.quests.status.failed"));
+		for (EntityPlayerMP player : getPlayers()) {
+			player.addChatMessage(new ChatComponentText("You have failed a quest"));
 		}
 		// TODO do special stuff for fail
 		onEnd();
 	}
 
 	protected void onSuccess() {
-		for (EntityPlayerMP player : getPlayerEntities()) {
-			player.world.playSound(
-					null,
-					player.getPosition(),
-					MHFCSoundRegistry.getRegistry().questClear,
-					SoundCategory.MUSIC,
-					2F,
-					1F);
-			player.world.playSound(
-					null,
-					player.getPosition(),
-					MHFCSoundRegistry.getRegistry().questNotification,
-					SoundCategory.NEUTRAL,
-					2F,
-					2F);
-			player.sendMessage(new TextComponentTranslation("mhfc.quests.status.success"));
+		for (QuestingPlayerState attribute : playerAttributes.values()) {
+			attribute.reward = true;
+			attribute.player.addExperienceLevel(10);
+			attribute.player.addChatMessage(new ChatComponentText("You have successfully completed a quest"));
 		}
+		this.state = QuestState.finished;
+		// TODO reward the players for finishing the quest with dynamic rewards
 		onEnd();
 	}
 
 	protected void onStart() {
+		explorationManager = new QuestExplorationManager(getQuestFlair(), getQuestingArea(), this);
 		questGoal.setActive(true);
-		QuestExplorationManager.bindPlayersToMission(getPlayers(), this);
-		for (QuestingPlayerState playerAttributes : playerAttributes.values()) {
-			GameProfile player = playerAttributes.player;
-			playerAttributes.playerState = PlayerState.ON_QUEST;
-			MHFCExplorationRegistry.getExplorationManagerFor(player).respawn(null);
+		this.state = QuestState.running;
+		for (EntityPlayerMP player : getPlayers()) {
+			MHFCExplorationRegistry.bindPlayer(explorationManager, player);
+			explorationManager.respawn(player);
+			// AreaTeleportation.movePlayerToArea(player, questingArea.getArea());
 		}
-
 		updatePlayers();
 		resetVotes();
-		spawns.enqueueSpawns(getSpawnController());
 	}
 
 	private void resetVotes() {
@@ -250,26 +198,11 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 	 * This method should be called whenever the quest ends, no matter how.
 	 */
 	protected void onEnd() {
-		List<CompletionStage<Void>> teleports = new ArrayList<>();
-		for (QuestingPlayerState playerState : playerAttributes.values()) {
-			CompletionStage<Void> afterReward = teleportBack(playerState).thenAccept(v -> {
-				if (state == QuestState.FINISHED_SUCCESS) {
-					EntityPlayerMP player = playerState.getPlayerEntity();
-					player.sendMessage(new TextComponentTranslation("mhfc.quests.status.rewardGranted"));
-					reward.grantReward(player);
-					playerState.reward = true;
-				}
-			});
-			teleports.add(afterReward);
+		for (EntityPlayerMP player : getPlayers()) {
+			removePlayer(player);
 		}
-		CompletionStage<Void> afterTeleports = CompletableFuture.allOf(teleports.toArray(new CompletableFuture[0]));
-		afterTeleports.<Void>handle((r, e) -> null).thenCompose(v -> {
-			return MHFCTickHandler.schedule(TickPhase.SERVER_POST, 5 * 20, () -> {
-				MHFCQuestRegistry.getRegistry().endMission(this);
-				MHFCMain.logger().info("Mission {} ended", getMission());
-			});
-		});
-
+		MHFCQuestRegistry.getRegistry().endMission(this);
+		MHFCMain.logger().info("Mission {} ended", getMission());
 	}
 
 	protected void updatePlayers() {
@@ -277,7 +210,8 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 		if (update == null) {
 			return;
 		}
-		for (EntityPlayerMP player : getPlayerEntities()) {
+		for (QuestingPlayerState attribute : playerAttributes.values()) {
+			EntityPlayerMP player = attribute.player;
 			PacketPipeline.networkPipe.sendTo(update, player);
 		}
 		// MHFCQuestRegistry.questUpdated(update);
@@ -291,9 +225,9 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 
 	public boolean canJoin(EntityPlayer player) {
 		// TODO add more evaluation and/or move to another class?
-		boolean isPending = state == QuestState.PENDING;
+		boolean isPending = state == QuestState.pending;
 		boolean notFull = playerCount() < maxPlayerCount;
-		boolean playerHasNoQuest = MHFCQuestRegistry.getRegistry().getMissionForPlayer(player) == null;
+		boolean playerHasNoQuest = MHFCQuestRegistry.getRegistry().getQuestForPlayer(player) == null;
 		return isPending && notFull && playerHasNoQuest;
 	}
 
@@ -312,53 +246,23 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 	}
 
 	private void addPlayer(EntityPlayerMP player) {
-		playerAttributes.putPlayer(player, Mission.newAttribute(player.getGameProfile()));
-		MHFCQuestRegistry.getRegistry().setMissionForPlayer(player, this);
+		playerAttributes.putPlayer(player, Mission.newAttribute(player));
+		MHFCQuestRegistry.getRegistry().setQuestForPlayer(player, this);
 		updatePlayerInitial(player);
 		updatePlayers();
 	}
 
-	private QuestingPlayerState removePlayer(EntityPlayerMP player) {
+	private boolean removePlayer(EntityPlayerMP player) {
 		QuestingPlayerState att = playerAttributes.removePlayer(player);
 		if (att != null) {
-			PacketPipeline.networkPipe.sendTo(MessageMissionStatus.departing(missionID), player);
-			MHFCQuestRegistry.getRegistry().setMissionForPlayer(player, null);
-			//
+			PacketPipeline.networkPipe.sendTo(MessageMissionStatus.departing(missionID), att.player);
+			MHFCQuestRegistry.getRegistry().setQuestForPlayer(att.player, null);
+			MHFCExplorationRegistry.bindPlayer(att.previousManager, player);
+			MHFCExplorationRegistry.respawnPlayer(player);
+			return true;
 		}
-		return att;
+		return false;
 	}
-
-	private CompletionStage<Void> teleportBack(QuestingPlayerState att) {
-		Objects.requireNonNull(att);
-
-		if (att.playerState == PlayerState.WAITING_FOR_BACK_TP) {
-			return CompletableFuture.completedFuture(null);
-		}
-		if (att.playerState == PlayerState.IN_TOWN) {
-			// Pretend we're gonna to tp him, but actually just rebind the player
-			att.playerState = PlayerState.WAITING_FOR_BACK_TP;
-			return MHFCTickHandler.schedule(TickPhase.SERVER_POST, DELAY_BEFORE_TP_IN_SECONDS * 20, () -> {
-				GameProfile player = att.player;
-				MHFCExplorationRegistry.bindPlayer(att.previousManager, player).respawn(att.previousSaveData);
-				att.playerState = PlayerState.IN_TOWN;
-			});
-		}
-
-		att.getPlayerEntity().sendMessage(
-				new TextComponentTranslation("mhfc.quests.status.teleportSoon", DELAY_BEFORE_TP_IN_SECONDS));
-		att.playerState = PlayerState.WAITING_FOR_BACK_TP;
-		return MHFCTickHandler.schedule(TickPhase.SERVER_POST, DELAY_BEFORE_TP_IN_SECONDS * 20, () -> {
-			EntityPlayerMP player = att.getPlayerEntity();
-			player.sendMessage(new TextComponentTranslation("mhfc.quests.status.teleport"));
-
-			// Remove the player, otherwise the rebind will trigger another remove
-			removePlayer(player);
-
-			MHFCExplorationRegistry.bindPlayer(att.previousManager, att.player).respawn(att.previousSaveData);
-			att.playerState = PlayerState.IN_TOWN;
-		});
-	}
-
 
 	public boolean joinPlayer(EntityPlayerMP player) {
 		if (!canJoin(player)) {
@@ -368,22 +272,16 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 		return true;
 	}
 
-	public void quitPlayer(EntityPlayerMP player) {
-		QuestingPlayerState attributes = removePlayer(player);
-		if (attributes != null) {
-			teleportBack(attributes);
-		}
+	public boolean quitPlayer(EntityPlayerMP player) {
+		boolean found = removePlayer(player);
 		if (playerCount() == 0) {
 			onEnd();
 		}
+		return found;
 	}
 
-	public Set<GameProfile> getPlayers() {
+	public Set<EntityPlayerMP> getPlayers() {
 		return playerAttributes.values().stream().map(t -> t.player).collect(Collectors.toSet());
-	}
-
-	public Set<EntityPlayerMP> getPlayerEntities() {
-		return playerAttributes.values().stream().map(QuestingPlayerState::getPlayerEntity).collect(Collectors.toSet());
 	}
 
 	/**
@@ -394,7 +292,7 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 		return questingArea.getArea().getSpawnController();
 	}
 
-	public IQuestDefinition getOriginalDescription() {
+	public QuestDefinition getOriginalDescription() {
 		return originalDescription;
 	}
 
@@ -409,7 +307,7 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 	}
 
 	private boolean allVotes() {
-		return !playerAttributes.isEmpty() && playerAttributes.values().stream().allMatch((x) -> x.vote);
+		return playerAttributes.values().stream().map((x) -> x.vote).reduce(Boolean::logicalAnd).orElse(true);
 	}
 
 	public void voteEnd(EntityPlayerMP player) {
@@ -417,13 +315,11 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 		attributes.vote = true;
 
 		boolean end = allVotes();
-		if (end && state == QuestState.RUNNING) {
+		if (end && state == QuestState.running) {
 			onEnd();
-			state = QuestState.RESIGNED;
 			resetVotes();
 		}
 	}
-
 
 	public int getMaxPartySize() {
 		return maxPlayerCount;
@@ -448,10 +344,7 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 			return;
 		}
 		questGoal.questGoalFinalize();
-		if (questingArea != null) {
-			// Could be closed before area is finished
-			questingArea.close();
-		}
+		questingArea.close();
 		closed = true;
 	}
 
@@ -460,6 +353,16 @@ public class Mission implements QuestGoalSocket, AutoCloseable {
 		if (!closed) {
 			close();
 		}
+	}
+
+	/**
+	 * Searches for the player with a matching entity id and updates all references
+	 */
+	public boolean updatePlayerEntity(EntityPlayerMP player) {
+		return playerAttributes.computeIfPresent(PlayerMap.playerToKey(player), (k, a) -> {
+			a.player = player;
+			return a;
+		}) != null;
 	}
 
 	/**

@@ -12,7 +12,7 @@ import static org.lwjgl.opengl.GL11.glEnable;
 
 import mhfc.net.client.util.gui.MHFCGuiUtil;
 import mhfc.net.common.core.registry.MHFCPotionRegistry;
-import mhfc.net.common.entity.fx.FXFlashbomb;
+import mhfc.net.common.entity.projectile.EntityFlashBomb;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.potion.PotionEffect;
@@ -20,11 +20,11 @@ import net.minecraft.potion.PotionEffect;
 public class RenderEffects {
 	private static final Minecraft mc = Minecraft.getMinecraft();
 
-	public static final int EXPLOSION_DURATION = FXFlashbomb.EXPLOSION_TICKS;
+	public static final int EXPLOSION_DURATION = EntityFlashBomb.EXPLOSION_TICKS;
 	public static final int PHASE_IN_DURATION = 5;
 
 	public static void displayFlashBomb() {
-		EntityPlayer player = Minecraft.getMinecraft().player;
+		EntityPlayer player = Minecraft.getMinecraft().thePlayer;
 		PotionEffect flashPotion = player.getActivePotionEffect(MHFCPotionRegistry.getRegistry().flashed);
 		if (flashPotion == null) {
 			return;

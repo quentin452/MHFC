@@ -1,6 +1,5 @@
 package mhfc.net.client.gui;
 
-import java.io.IOException;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -42,7 +41,7 @@ public abstract class MHFCGui extends GuiScreen implements IMHFCGuiItem {
 	}
 
 	@Override
-	protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
+	protected void mouseClicked(int mouseX, int mouseY, int button) {
 		handleClick(mouseX, mouseY, button);
 	}
 
@@ -52,7 +51,7 @@ public abstract class MHFCGui extends GuiScreen implements IMHFCGuiItem {
 	}
 
 	@Override
-	protected void mouseReleased(int mouseX, int mouseY, int button) {
+	protected void mouseMovedOrUp(int mouseX, int mouseY, int button) {
 		if (button < 0) {
 			handleMovement(mouseX, mouseY);
 		} else {
@@ -66,7 +65,7 @@ public abstract class MHFCGui extends GuiScreen implements IMHFCGuiItem {
 	}
 
 	@Override
-	public boolean handleClick(float relativeX, float relativeY, int button) throws IOException {
+	public boolean handleClick(float relativeX, float relativeY, int button) {
 		mouseClickX = relativeX;
 		mouseClickY = relativeY;
 		mouseLastX = relativeX;
@@ -113,7 +112,7 @@ public abstract class MHFCGui extends GuiScreen implements IMHFCGuiItem {
 
 	@Override
 	public void handleMouseUp(float mouseX, float mouseY, int id) {
-		super.mouseReleased((int) mouseX, (int) mouseY, id);
+		super.mouseMovedOrUp((int) mouseX, (int) mouseY, id);
 		for (IMHFCGuiItem item : screenComponents.keySet()) {
 			Vector2f pos = screenComponents.get(item);
 			item.handleMouseUp(mouseX - pos.x, mouseY - pos.y, id);
@@ -124,7 +123,7 @@ public abstract class MHFCGui extends GuiScreen implements IMHFCGuiItem {
 
 	@Override
 	public void handleMovement(float mouseX, float mouseY) {
-		super.mouseReleased((int) mouseX, (int) mouseY, -1);
+		super.mouseMovedOrUp((int) mouseX, (int) mouseY, -1);
 		for (IMHFCGuiItem item : screenComponents.keySet()) {
 			Vector2f pos = screenComponents.get(item);
 			item.handleMovement(mouseX - pos.x, mouseY - pos.y);

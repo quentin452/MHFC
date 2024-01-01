@@ -4,9 +4,10 @@ import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonSerializationContext;
 
-import mhfc.net.common.util.io.IConverter;
+public interface IGoalDefinitionFactory {
+	public GoalDefinition buildGoalDescription(JsonElement jsonElement,
+		JsonDeserializationContext context);
 
-public interface IGoalDefinitionFactory
-		extends
-		IConverter<JsonElement, JsonDeserializationContext, IGoalDefinition, JsonSerializationContext> {
+	public JsonElement serialize(GoalDefinition description,
+		JsonSerializationContext context);
 }

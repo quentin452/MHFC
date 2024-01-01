@@ -1,37 +1,19 @@
 package mhfc.net.common.world.area;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.EntityPlayer;
-
 public abstract class ActiveAreaAdapter implements IActiveArea {
-	private boolean engaged = false;
 	private boolean dismissed = false;
 
 	@Override
 	public abstract IArea getArea();
 
-	protected abstract void onEngage();
 	protected abstract void onDismiss();
-
-	protected boolean isNotPartOfRaid(Entity entity) {
-		return !(entity instanceof EntityPlayer);
-	}
-
-	@Override
-	public void engage() throws IllegalStateException {
-		if (!engaged) {
-			onEngage();
-			getArea().getSpawnController().clearAreaOf(this::isNotPartOfRaid);
-			engaged = true;
-		}
-	}
 
 	@Override
 	public final void dismiss() {
-		if (!dismissed && engaged) {
+		if (!dismissed) {
 			onDismiss();
 			getArea().getSpawnController().clearQueues();
-			getArea().getSpawnController().clearAreaOf(this::isNotPartOfRaid);
+			getArea().getSpawnController().clearArea();
 			dismissed = true;
 		}
 	}

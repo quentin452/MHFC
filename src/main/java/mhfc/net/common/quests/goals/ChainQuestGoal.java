@@ -130,9 +130,7 @@ public class ChainQuestGoal extends QuestGoal implements QuestGoalSocket {
 	/**
 	 * This gets called whenever some {@link QuestGoal} has notified us that is not the next goal.
 	 */
-	protected void onUnknownStatusNotification(
-			QuestGoal caller,
-			EnumSet<QuestStatus> newStatus) {
+	protected void onUnknownStatusNotification(QuestGoal caller, EnumSet<QuestStatus> newStatus) {
 		throw new IllegalArgumentException(
 				"ChainQuestGoal: A QuestGoal that is not our next goal should not notify us");
 	}

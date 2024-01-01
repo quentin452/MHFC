@@ -4,7 +4,7 @@ import java.util.Objects;
 
 import com.google.common.base.Preconditions;
 
-import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.Entity;
 
 public class CombatEffect {
 	private ICombatEffectType effect;
@@ -28,7 +28,7 @@ public class CombatEffect {
 		return getAmount() * scale;
 	}
 
-	public void applyTo(EntityLivingBase target, EntityLivingBase attacker) {
-		this.effect.applyTo(target, getAmount(), attacker);
+	public void applyTo(Entity target) {
+		this.effect.applyTo(target, getAmount());
 	}
 }

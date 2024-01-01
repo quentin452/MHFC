@@ -15,17 +15,17 @@ import mhfc.net.common.util.Comparation.ComparationResult;
 import mhfc.net.common.util.parsing.exceptions.AmbiguousCallException;
 
 public class Disambiguator {
-	private static enum MethodApplicability {
+	private static enum MethodApplicability implements Comparable<MethodApplicability> {
 		/**
-		 * §15.12.2.2 without permitting boxing or unboxing conversion, or the use of variable arity method invocation
+		 * \u00A715.12.2.2 without permitting boxing or unboxing conversion, or the use of variable arity method invocation
 		 */
 		SUBTYPING,
 		/**
-		 * §15.12.2.3 allowing boxing and unboxing, but still precludes the use of variable arity method invocation
+		 * \u00A715.12.2.3 allowing boxing and unboxing, but still precludes the use of variable arity method invocation
 		 */
 		METHOD_INVOKATION_CONVERSION,
 		/**
-		 * §15.12.2.4 combined with variable arity methods, boxing, and unboxing
+		 * \u00A715.12.2.4 combined with variable arity methods, boxing, and unboxing
 		 */
 		VARARG,
 		/**
@@ -55,7 +55,7 @@ public class Disambiguator {
 	}
 
 	/**
-	 * §15.12.2.5 Determine most specific method<br>
+	 * \u00A715.12.2.5 Determine most specific method<br>
 	 * Determines if candidate is more specific that precedent.<br>
 	 *
 	 * @param candidate
@@ -108,7 +108,7 @@ public class Disambiguator {
 	}
 
 	public Disambiguator consider(MethodInfo candidate) {
-		// §15.12.2
+		// \u00A715.12.2
 		MethodApplicability applicability = determineApplicability(candidate);
 		ComparationResult apResult = Comparation.comparing(bestStrategy).to(applicability);
 		if (apResult.favorsRight()) {

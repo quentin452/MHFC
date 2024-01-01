@@ -11,10 +11,10 @@ public class NBTUtils {
 	 * @param stack
 	 */
 	public static NBTTagCompound getNBTChecked(ItemStack stack) {
-		if (stack.getTagCompound() == null) {
-			stack.setTagCompound(new NBTTagCompound());
+		if (stack.stackTagCompound == null) {
+			stack.stackTagCompound = new NBTTagCompound();
 		}
-		return stack.getTagCompound();
+		return stack.stackTagCompound;
 	}
 
 	/**

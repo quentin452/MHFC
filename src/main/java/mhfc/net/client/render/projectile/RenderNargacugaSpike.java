@@ -1,27 +1,24 @@
 package mhfc.net.client.render.projectile;
 
-import mhfc.net.common.entity.projectile.ProjectileNargaSpike;
-import mhfc.net.common.index.ResourceInterface;
+import mhfc.net.common.entity.projectile.NargacugaSpike;
+import mhfc.net.common.util.lib.MHFCReference;
 import net.minecraft.client.renderer.entity.Render;
-import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.entity.Entity;
 import net.minecraft.util.ResourceLocation;
 
-public class RenderNargacugaSpike extends Render<ProjectileNargaSpike> {
-	private static final ResourceLocation TEXTURE = new ResourceLocation(ResourceInterface.projectile_nargacugaspike_tex);
+public class RenderNargacugaSpike extends Render {
 
-	public RenderNargacugaSpike(RenderManager manager) {
-		super(manager);
-	}
+	private static final ResourceLocation TEXTURE = new ResourceLocation(MHFCReference.projectile_nargacugaspike_tex);
 
 	@Override
-	public void doRender(ProjectileNargaSpike entity, double posX, double posY, double posZ, float yaw, float pitch) {
+	public void doRender(Entity entity, double positionX, double positionY, double positionZ, float yaw, float pitch) {
 		@SuppressWarnings("unused")
-		ProjectileNargaSpike nargaSpike = entity;
+		NargacugaSpike nargaSpike = (NargacugaSpike) entity;
 		// FIXME implement rendering of Nargacuga spike
 	}
 
 	@Override
-	protected ResourceLocation getEntityTexture(ProjectileNargaSpike entity) {
+	protected ResourceLocation getEntityTexture(Entity p_110775_1_) {
 		return TEXTURE;
 	}
 

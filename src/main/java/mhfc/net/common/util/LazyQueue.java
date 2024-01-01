@@ -162,10 +162,11 @@ public class LazyQueue<E> implements Queue<E> {
 		}
 		if (iter.hasNext()) {
 			return advance();
+		} else {
+			E last = bufferEl;
+			bufferEl = null;
+			return last;
 		}
-		E last = bufferEl;
-		bufferEl = null;
-		return last;
 	}
 
 	@Override

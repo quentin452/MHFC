@@ -1,6 +1,0 @@
-{
-    "parent": "block/tinted_cross",
-    "textures": {
-        "cross": "mhfc:blocks/plant_t1"
-    }
-}

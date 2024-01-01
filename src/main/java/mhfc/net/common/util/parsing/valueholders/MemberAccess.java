@@ -2,7 +2,6 @@ package mhfc.net.common.util.parsing.valueholders;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -22,6 +21,7 @@ import mhfc.net.common.util.parsing.proxies.MemberMethodProxy;
 import mhfc.net.common.util.reflection.FieldHelper;
 import mhfc.net.common.util.reflection.MethodHelper;
 import mhfc.net.common.util.reflection.OverloadedMethod;
+import scala.actors.threadpool.Arrays;
 
 /**
  * Represents a member of an {@link IValueHolder}. This is dynamically determined based on the currently present origin
@@ -66,7 +66,7 @@ public class MemberAccess implements IValueHolder {
 		}
 	}
 
-	private static class FieldProxy implements IFieldAccess {
+	private static class FieldProxy<T> implements IFieldAccess {
 		private final MethodHandle field;
 		private final Class<?> fieldType;
 
@@ -182,7 +182,7 @@ public class MemberAccess implements IValueHolder {
 		}
 		Optional<MethodHandle> f = FieldHelper.find(clazz, member);
 		if (f.isPresent()) {
-			return new FieldProxy(f.get());
+			return new FieldProxy<>(f.get());
 		}
 		Optional<OverloadedMethod> m = MethodHelper.find(clazz, member);
 		if (m.isPresent()) {

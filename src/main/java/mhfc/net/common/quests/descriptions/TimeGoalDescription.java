@@ -3,7 +3,8 @@ package mhfc.net.common.quests.descriptions;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 
-import mhfc.net.common.quests.api.IGoalDefinition;
+import mhfc.net.common.core.registry.MHFCQuestBuildRegistry;
+import mhfc.net.common.quests.api.GoalDefinition;
 import mhfc.net.common.quests.api.IGoalFactory;
 import mhfc.net.common.quests.api.QuestGoal;
 import mhfc.net.common.quests.goals.TimeQuestGoal;
@@ -12,13 +13,14 @@ import mhfc.net.common.quests.properties.IntProperty;
 import mhfc.net.common.util.stringview.Viewable;
 import mhfc.net.common.util.stringview.Viewables;
 
-public class TimeGoalDescription implements IGoalDefinition {
+public class TimeGoalDescription extends GoalDefinition {
 
 	public static final String ID_TIME = "time";
 
 	private int time;
 
 	public TimeGoalDescription(int time) {
+		super(MHFCQuestBuildRegistry.GOAL_TIME_TYPE);
 		this.time = time;
 	}
 
@@ -53,7 +55,7 @@ public class TimeGoalDescription implements IGoalDefinition {
 			@Override
 			public Viewable buildVisual() {
 				checkAttributesBound();
-				return Viewables.parse("Time Remaining: {{ticks | ticksToTime}}", baseProperties);
+				return Viewables.parse("Time remaining: {{ticks | ticksToTime}}", baseProperties);
 			}
 
 			@Override

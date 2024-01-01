@@ -51,7 +51,7 @@ public class GuiQuestGiver extends MHFCTabbedGui {
 		// ignore i for now
 
 		List<String> list = MHFCQuestBuildRegistry.getGroupList();
-		GuiQuestNew newQuest = new GuiQuestNew(list);
+		GuiQuestNew newQuest = new GuiQuestNew(list, playerEntity);
 		return new GuiQuestGiver(playerEntity, newQuest);
 	}
 }

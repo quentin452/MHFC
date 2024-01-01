@@ -46,16 +46,14 @@ public class RegionSplittingOperation implements Operation {
 		return this;
 	}
 
-
 	@Override
 	public void cancel() {
 		regionsSplitter.clear();
 	}
 
-	@Override
-	public void addStatusMessages(List<String> messages) {
-		// TODO Auto-generated method stub
-		
-	}
+    @Override
+    public void addStatusMessages(List<String> list) {
+
+    }
 
 }

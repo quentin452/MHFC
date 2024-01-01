@@ -66,8 +66,8 @@ public class DeathRestrictionQuestGoal extends QuestGoal implements NotifyableQu
 	public void notifyOfEvent(LivingDeathEvent event) {
 		Mission quest = getMission();
 		if (quest != null) {
-			Collection<EntityPlayerMP> players = quest.getPlayerEntities();
-			if (players != null && players.contains(event.getEntityLiving())) {
+			Collection<EntityPlayerMP> players = quest.getPlayers();
+			if (players != null && players.contains(event.entityLiving)) {
 				currentDeaths.inc();
 			}
 		}

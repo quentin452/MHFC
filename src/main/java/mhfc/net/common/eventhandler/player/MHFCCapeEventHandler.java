@@ -17,25 +17,17 @@ import java.util.Map;
 
 import javax.swing.ImageIcon;
 
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraftforge.client.event.RenderPlayerEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
 
 public class MHFCCapeEventHandler {
 	private static final Graphics TEST_GRAPHICS = new BufferedImage(128, 128, BufferedImage.TYPE_INT_RGB).getGraphics();
 	private static final int timeout = 5000;
-	private static final String serverPath = "https://gist.githubusercontent.com/Heltrato/"
+	private static final String serverLocation = "https://gist.githubusercontent.com/Heltrato/"
 			+ "e3f86194c43424abb8c4/raw/donorcapes";
-	private static final URL capesLocation;
-	static {
-		try {
-			capesLocation = new URL(serverPath);
-		} catch (MalformedURLException e) {
-			throw new AssertionError("Unreachable: Malformed path to capes location", e);
-		}
-	}
 
 	public static final MHFCCapeEventHandler instance = new MHFCCapeEventHandler();
 
@@ -43,19 +35,19 @@ public class MHFCCapeEventHandler {
 	private List<AbstractClientPlayer> capePlayers = new ArrayList<>();
 
 	private MHFCCapeEventHandler() {
-		new Thread(this::buildCloakURLDatabase, "mhfcCloakDatabase").start();
+		buildCloakURLDatabase();
 	}
 
 	@SubscribeEvent
 	@SideOnly(Side.CLIENT)
-	public void onPreRenderSpecials(RenderPlayerEvent.Pre event) {
-		if (!(event.getEntityPlayer() instanceof AbstractClientPlayer)) {
+	public void onPreRenderSpecials(RenderPlayerEvent.Specials.Pre event) {
+		if (!(event.entityPlayer instanceof AbstractClientPlayer)) {
 			return;
 		}
-		AbstractClientPlayer abstractClientPlayer = (AbstractClientPlayer) event.getEntityPlayer();
+		AbstractClientPlayer abstractClientPlayer = (AbstractClientPlayer) event.entityPlayer;
 
 		if (!capePlayers.contains(abstractClientPlayer)) {
-			String cloakURL = cloaks.get(event.getEntityPlayer().getName());
+			String cloakURL = cloaks.get(event.entityPlayer.getDisplayName());
 
 			if (cloakURL == null) {
 				return;
@@ -64,35 +56,39 @@ public class MHFCCapeEventHandler {
 			capePlayers.add(abstractClientPlayer);
 
 			new Thread(new CloakThread(abstractClientPlayer, cloakURL)).start();
-			//FIXME: event.getRenderer().addLayer(/* Layer */);
+			event.renderCape = true;
 		}
 	}
 
 	public void buildCloakURLDatabase() {
+		URL url;
 		try {
-			URLConnection con = capesLocation.openConnection();
+			url = new URL(serverLocation);
+			URLConnection con = url.openConnection();
 			con.setConnectTimeout(timeout);
 			con.setReadTimeout(timeout);
-			try (
-					InputStream io = con.getInputStream();
-					BufferedReader br = new BufferedReader(new InputStreamReader(io))) {
+			InputStream io = con.getInputStream();
+			BufferedReader br = new BufferedReader(new InputStreamReader(io));
 
-				String str;
-				int linetracker = 1;
-				while ((str = br.readLine()) != null) {
-					if (!str.startsWith("--") && !str.isEmpty()) {
-						if (str.contains(":")) {
-							String nick = str.substring(0, str.indexOf(":"));
-							String link = str.substring(str.indexOf(":") + 1);
-							new Thread(new CloakPreload(link)).start();
-							cloaks.put(nick, link);
-						} else {
-							System.err.println("[MHFC] [capes.txt] Syntax error on line " + linetracker + ": " + str);
-						}
+			String str;
+			int linetracker = 1;
+			while ((str = br.readLine()) != null) {
+				if (!str.startsWith("--") && !str.isEmpty()) {
+					if (str.contains(":")) {
+						String nick = str.substring(0, str.indexOf(":"));
+						String link = str.substring(str.indexOf(":") + 1);
+						new Thread(new CloakPreload(link)).start();
+						cloaks.put(nick, link);
+					} else {
+						System.err.println("[MHFC] [capes.txt] Syntax error on line " + linetracker + ": " + str);
 					}
-					linetracker++;
 				}
+				linetracker++;
 			}
+
+			br.close();
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

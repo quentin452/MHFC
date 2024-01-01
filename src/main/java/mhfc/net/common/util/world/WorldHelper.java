@@ -1,14 +1,10 @@
 package mhfc.net.common.util.world;
 
 import java.util.List;
-import java.util.Random;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-
+import net.minecraft.command.IEntitySelector;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
 
 /**
@@ -36,25 +32,17 @@ public class WorldHelper {
 	 *            the entity to collide with
 	 * @param filter
 	 *            the filter to apply, <code>null</code> means no filtering
-	 * @return all colliding entities that are not filtered
-	 * 
-	 *         February 20,2018 @TODO: remove this feature "This is a very glitch method, in which the collision box do
-	 *         not offer the damage process smoothly, i would prefer the calculation per monster dist Sq. since all of
-	 *         it adjustt through the remote side" - Heltrato
-	 * 
+	 * @return all collidig entities that are not filtered
 	 */
-	@Deprecated
-	public static List<Entity> collidingEntities(Entity entity, Predicate<? super Entity> filter) {
-		World world = entity.world;
-		List<Entity> collidingEntities = world
-				.getEntitiesInAABBexcluding(entity, entity.getEntityBoundingBox(), filter);
+	public static List<Entity> collidingEntities(Entity entity, IEntitySelector filter) {
+		World world = entity.worldObj;
+		List<Entity> collidingEntities = world.getEntitiesWithinAABBExcludingEntity(entity, entity.boundingBox);
 		Entity[] subEntities = entity.getParts();
 		if (subEntities == null) {
 			return collidingEntities;
 		}
 		for (Entity subE : subEntities) {
-			List<Entity> collidingEntitiesSub = world
-					.getEntitiesInAABBexcluding(entity, subE.getEntityBoundingBox(), filter);
+			List<Entity> collidingEntitiesSub = world.getEntitiesWithinAABBExcludingEntity(entity, subE.boundingBox);
 			for (Entity collidingE : collidingEntitiesSub) {
 				if (!collidingEntities.contains(collidingE)) {
 					collidingEntities.add(collidingE);
@@ -73,36 +61,16 @@ public class WorldHelper {
 	 *            the entity to which the vector points to
 	 * @return the vector between them
 	 */
-	public static Vec3d getVectorToTarget(Entity entity, Entity target) {
-		Vec3d pos = entity.getPositionVector();
-		Vec3d entityToTarget = target.getPositionVector();
+	public static Vec3 getVectorToTarget(Entity entity, Entity target) {
+		// TODO: ?use entity.getPosition() on CLIENT-side?
+		Vec3 pos = getEntityPositionVector(entity);
+		Vec3 entityToTarget = getEntityPositionVector(target);
 		entityToTarget = pos.subtract(entityToTarget);
 		return entityToTarget;
 	}
 
-	/**
-	 * Generates a random block position that has a maximal horizontal & vertical distance to the origin
-	 *
-	 * @param rand
-	 * @param origin
-	 * @param horizontal
-	 * @param vertical
-	 * @return a random block position in the range
-	 *
-	 *         <pre>
-	 * [origin - (horizontal, vertical, horizontal), origin + (horizontal, vertical, horizontal)]
-	 *         </pre>
-	 */
-	public static BlockPos randomProximity(Random rand, BlockPos origin, int horizontal, int vertical) {
-		// Simulates random brownian motion
-		BlockPos.MutableBlockPos output = new BlockPos.MutableBlockPos(origin);
-		output.add(randomOffset(rand, horizontal), randomOffset(rand, vertical), randomOffset(rand, horizontal));
-		return output;
-	}
-
-	private static int randomOffset(Random rand, int maxDistance) {
-		Preconditions.checkArgument(maxDistance >= 0);
-		return rand.nextInt(maxDistance * 2 + 1) - maxDistance;
+	public static Vec3 getEntityPositionVector(Entity entity) {
+		return Vec3.createVectorHelper(entity.posX, entity.posY, entity.posZ);
 	}
 
 }

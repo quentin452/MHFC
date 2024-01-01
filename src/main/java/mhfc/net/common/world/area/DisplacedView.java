@@ -1,45 +1,39 @@
 package mhfc.net.common.world.area;
 
-import java.lang.ref.WeakReference;
-import java.util.List;
-import java.util.function.Predicate;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import mhfc.net.common.world.AreaTeleportation;
 import mhfc.net.common.world.controller.CornerPosition;
-import net.minecraft.block.state.IBlockState;
+import net.minecraft.block.Block;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumParticleTypes;
-import net.minecraft.util.SoundCategory;
-import net.minecraft.util.SoundEvent;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.IWorldEventListener;
+import net.minecraft.util.Vec3;
+import net.minecraft.world.IWorldAccess;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraftforge.common.util.ForgeDirection;
 
 public class DisplacedView implements IWorldView {
 
 	private int chunkDeltaX, chunkDeltaZ;
-	private int chunkDimensionX, chunkDimensionZ;
-	private int blockDeltaX, blockDeltaZ;
-	private WeakReference<World> worldRef;
+	private int addX, addZ;
+	private int dimensionX, dimensionZ;
+	private World worldObj;
 
 	public DisplacedView(CornerPosition chunkCorner, AreaConfiguration configuration, World world) {
 		chunkDeltaX = chunkCorner.posX;
 		chunkDeltaZ = chunkCorner.posY;
-		chunkDimensionX = configuration.getChunkSizeX();
-		chunkDimensionZ = configuration.getChunkSizeZ();
-		worldRef = new WeakReference<>(world);
+		dimensionX = configuration.getChunkSizeX();
+		dimensionZ = configuration.getChunkSizeZ();
+		worldObj = Objects.requireNonNull(world);
 
-		blockDeltaX = chunkDeltaX << 4;
-		blockDeltaZ = chunkDeltaZ << 4;
+		addX = chunkDeltaX << 4;
+		addZ = chunkDeltaZ << 4;
 	}
 
 	public int getChunkDeltaX() {
@@ -51,127 +45,121 @@ public class DisplacedView implements IWorldView {
 	}
 
 	public int getAddX() {
-		return blockDeltaX;
+		return addX;
 	}
 
 	public int getAddZ() {
-		return blockDeltaZ;
+		return addZ;
 	}
 
 	public int getDimensionX() {
-		return chunkDimensionX;
+		return dimensionX;
 	}
 
 	public int getDimensionZ() {
-		return chunkDimensionZ;
+		return dimensionZ;
 	}
 
 	private boolean isInBoundary(double x, double y, double z) {
-		return x >= 0 && y >= 0 && z >= 0 && x < chunkDimensionX * 16 && z < chunkDimensionZ * 16
-				&& y < getWorldObject().getActualHeight();
-	}
-
-	private boolean isInBoundary(Entity entity) {
-		return isInBoundary(entity.posX - blockDeltaX, entity.posY, entity.posZ - blockDeltaZ);
-	}
-
-	private boolean isInBoundary(BlockPos localPos) {
-		return isInBoundary(localPos.getX(), localPos.getY(), localPos.getZ());
-	}
-
-	private BlockPos localToGlobal(BlockPos localPos) {
-		return localPos.add(blockDeltaX, 0, blockDeltaZ);
-	}
-
-	private BlockPos globalToLocal(BlockPos globalPos) {
-		return globalPos.add(-blockDeltaX, 0, -blockDeltaZ);
+		return x >= 0 && y >= 0 && z >= 0 && x < dimensionX * 16 && z < dimensionZ * 16
+				&& y < worldObj.getActualHeight();
 	}
 
 	@Override
 	public boolean isDaytime() {
-		return getWorldObject().isDaytime();
+		return worldObj.isDaytime();
 	}
 
 	@Override
 	public boolean isThundering() {
-		return getWorldObject().isThundering();
+		return worldObj.isThundering();
 	}
 
 	@Override
 	public boolean isRaining() {
-		return getWorldObject().isRaining();
+		return worldObj.isRaining();
 	}
 
 	@Override
-	public boolean isAirBlock(BlockPos position) {
-		if (!isInBoundary(position)) {
+	public void markBlockForUpdate(int x, int y, int z) {
+		worldObj.markBlockForUpdate(x + addX, y, z + addZ);
+	}
+
+	@Override
+	public boolean isAirBlock(int x, int y, int z) {
+		if (!isInBoundary(x, y, z))
 			return true;
-		}
-		return getWorldObject().isAirBlock(localToGlobal(position));
+		return worldObj.isAirBlock(x + addX, y, z + addZ);
 	}
 
 	@Override
-	public boolean blockExists(BlockPos position) {
-		if (!isInBoundary(position)) {
+	public boolean blockExists(int x, int y, int z) {
+		if (!isInBoundary(x, y, z))
 			return false;
-		}
-		return getWorldObject().isBlockLoaded(position);
+		return worldObj.blockExists(x + addX, y, z + addZ);
 	}
 
 	@Override
-	public Chunk getChunkFromBlockCoords(BlockPos position) {
-		if (!isInBoundary(position)) {
+	public Chunk getChunkFromBlockCoords(int x, int z) {
+		if (!isInBoundary(x, 0, z))
 			return null;
-		}
-		return getWorldObject().getChunkFromBlockCoords(localToGlobal(position));
+		return worldObj.getChunkFromBlockCoords(x + addX, z + addZ);
 	}
 
 	@Override
-	public IBlockState getTopBlock(BlockPos position) {
-		if (!isInBoundary(position)) {
-			return Blocks.AIR.getDefaultState();
-		}
-		return getWorldObject().getBlockState(getWorldObject().getHeight(localToGlobal(position)));
+	public Block getTopBlock(int x, int z) {
+		if (!isInBoundary(x, 0, z))
+			return Blocks.air;
+		return worldObj.getTopBlock(x + addX, z + addZ);
 	}
 
 	@Override
-	public BlockPos getTopSolidOrLiquidBlock(BlockPos position) {
-		if (!isInBoundary(position)) {
-			return new BlockPos(position.getX(), -1, position.getZ());
-		}
-		return globalToLocal(getWorldObject().getTopSolidOrLiquidBlock(localToGlobal(position)));
+	public int getTopSolidOrLiquidBlock(int x, int z) {
+		if (!isInBoundary(x, 0, z))
+			return -1;
+		return worldObj.getTopSolidOrLiquidBlock(x + addX, z + addZ);
 	}
 
 	@Override
-	public IBlockState getBlockState(BlockPos position) {
-		if (!isInBoundary(position)) {
-			return Blocks.AIR.getDefaultState();
-		}
-		return getWorldObject().getBlockState(localToGlobal(position));
+	public Block getBlock(int x, int y, int z) {
+		if (!isInBoundary(x, y, z))
+			return Blocks.air;
+		return worldObj.getBlock(x + addX, y, z + addZ);
 	}
 
 	@Override
-	public boolean setBlockToAir(BlockPos position) {
-		if (!isInBoundary(position)) {
+	public int getBlockMetadata(int x, int y, int z) {
+		if (!isInBoundary(x, y, z))
+			return 0;
+		return worldObj.getBlockMetadata(x + addX, y, z + addZ);
+	}
+
+	@Override
+	public boolean setBlockToAir(int x, int y, int z) {
+		if (!isInBoundary(x, y, z))
 			return false;
-		}
-		return getWorldObject().setBlockToAir(localToGlobal(position));
+		return worldObj.setBlockToAir(x + addX, y, z + addZ);
 	}
 
 	@Override
-	public boolean setBlockState(BlockPos position, IBlockState state) {
-		if (!isInBoundary(position)) {
+	public boolean setBlock(int x, int y, int z, Block block) {
+		if (!isInBoundary(x, y, z))
 			return false;
-		}
-		return getWorldObject().setBlockState(localToGlobal(position), state);
+		return worldObj.setBlock(x + addX, y, z + addZ, block);
 	}
 
 	@Override
-	public boolean setBlockState(BlockPos position, IBlockState state, int flags) {
-		if (!isInBoundary(position)) {
+	public boolean setBlock(int x, int y, int z, Block block, int metadata, int flags) {
+		if (!isInBoundary(x, y, z))
 			return false;
-		}
-		return getWorldObject().setBlockState(localToGlobal(position), state, flags);
+		return worldObj.setBlock(x + addX, y, z + addZ, block, metadata, flags);
+	}
+
+	@Override
+	public void playSoundEffect(double x, double y, double z, String soundName, float p_72908_8_, float p_72908_9_) {
+		if (!isInBoundary(x, y, z))
+			return;
+		worldObj.playSoundEffect(x + addX, y, z + addZ, soundName, p_72908_8_, p_72908_9_);
 	}
 
 	@Override
@@ -179,138 +167,111 @@ public class DisplacedView implements IWorldView {
 			double x,
 			double y,
 			double z,
-			SoundEvent sound,
-			SoundCategory category,
+			String soundName,
 			float volume,
-			float pitch,
-			boolean honorDistance) {
-		if (!isInBoundary(x, y, z)) {
+			float p_72980_9_,
+			boolean p_72980_10_) {
+		if (!isInBoundary(x, y, z))
 			return;
-		}
-		getWorldObject().playSound(x + blockDeltaX, y, z + blockDeltaZ, sound, category, volume, pitch, honorDistance);
+		worldObj.playSound(x + addX, y, z + addZ, soundName, volume, p_72980_9_, p_72980_10_);
 	}
 
 	@Override
 	public void spawnParticle(
-			EnumParticleTypes particle,
+			String particleName,
 			double x,
 			double y,
 			double z,
 			double velX,
 			double velY,
-			double velZ,
-			int... params) {
-		if (!isInBoundary(x, y, z)) {
+			double velZ) {
+		if (!isInBoundary(x, y, z))
 			return;
-		}
-		getWorldObject().spawnParticle(particle, x + blockDeltaX, y, z + blockDeltaZ, velX, velY, velZ, params);
+		worldObj.spawnParticle(particleName, x + addX, y, z + addZ, velX, velY, velZ);
 	}
 
 	@Override
 	public void onEntityAdded(Entity entity) {
-		getWorldObject().onEntityAdded(entity);
+		worldObj.onEntityAdded(entity);
 	}
 
 	@Override
 	public void onEntityRemoved(Entity entity) {
-		getWorldObject().onEntityRemoved(entity);
+		worldObj.onEntityRemoved(entity);
 	}
 
 	@Override
 	public void removeEntity(Entity entity) {
-		getWorldObject().removeEntity(entity);
+		worldObj.removeEntity(entity);
 	}
 
 	@Override
-	public void addWorldAccess(IWorldEventListener worldAccess) {
-		getWorldObject().addEventListener(worldAccess);
+	public void addWorldAccess(IWorldAccess worldAccess) {
+		worldObj.addWorldAccess(worldAccess);
 	}
 
 	@Override
-	public void removeWorldAccess(IWorldEventListener worldAccess) {
-		getWorldObject().removeEventListener(worldAccess);
+	public void removeWorldAccess(IWorldAccess worldAccess) {
+		worldObj.removeWorldAccess(worldAccess);
 	}
 
 	@Override
-	public TileEntity getTileEntity(BlockPos position) {
-		if (!isInBoundary(position)) {
+	public TileEntity getTileEntity(int x, int y, int z) {
+		if (!isInBoundary(x, y, z))
 			return null;
-		}
-		return getWorldObject().getTileEntity(localToGlobal(position));
+		return worldObj.getTileEntity(x + addX, y, z + addZ);
 	}
 
 	@Override
-	public void setTileEntity(BlockPos position, TileEntity tileEntity) {
-		if (!isInBoundary(position)) {
+	public void setTileEntity(int x, int y, int z, TileEntity tileEntity) {
+		if (!isInBoundary(x, y, z))
 			return;
-		}
-		getWorldObject().setTileEntity(localToGlobal(position), tileEntity);
+		worldObj.setTileEntity(x + addX, y, z + addZ, tileEntity);
 	}
 
 	@Override
-	public void removeTileEntity(BlockPos position) {
-		if (!isInBoundary(position)) {
+	public void removeTileEntity(int x, int y, int z) {
+		if (!isInBoundary(x, y, z))
 			return;
-		}
-		getWorldObject().removeTileEntity(localToGlobal(position));
-	}
-
-	private void loadAllChunksInView() {
-		World world = getWorldObject();
-		for (int x = 0; x < chunkDimensionX; x++) {
-			for (int z = 0; z < chunkDimensionZ; z++) {
-				Chunk loadedChunk = world.getChunkFromChunkCoords(chunkDeltaX + x, chunkDeltaZ + z);
-				assert !loadedChunk.unloadQueued;
-			}
-		}
+		worldObj.removeTileEntity(x + addX, y, z + addZ);
 	}
 
 	@Override
 	public int countEntities(Class<? extends Entity> entityClass) {
-		loadAllChunksInView();
-
-		Stream<Entity> entStream = getWorldObject().loadedEntityList.stream();
-		return (int) entStream.filter(e -> entityClass.isAssignableFrom(e.getClass()))
-				.filter(this::isInBoundary).count();
+		@SuppressWarnings("unchecked")
+		Stream<Entity> entStream = worldObj.loadedEntityList.stream();
+		return entStream.filter((e) -> entityClass.isAssignableFrom(e.getClass()))
+				.filter((e) -> isInBoundary(e.posX - addX, e.posY, e.posZ - addZ)).collect(Collectors.counting())
+				.intValue();
 	}
 
 	@Override
-	public List<Entity> getAllMatchingEntities(Predicate<Entity> predicate) {
-		loadAllChunksInView();
-
-		return getWorldObject().loadedEntityList.stream().filter(predicate.and(this::isInBoundary))
-				.collect(Collectors.toList());
-	}
-
-	@Override
-	public int getBlockPowerInput(BlockPos position, EnumFacing face) {
-		if (!isInBoundary(position)) {
+	public int getBlockPowerInput(int x, int y, int z) {
+		if (!isInBoundary(x, y, z))
 			return 0;
-		}
-		return getWorldObject().getRedstonePower(localToGlobal(position), face);
+		return worldObj.getBlockPowerInput(x + addX, y, z + addZ);
 	}
 
 	@Override
-	public boolean canMineBlock(EntityPlayer player, BlockPos position) {
-		if (!isInBoundary(position)) {
+	public boolean canMineBlock(EntityPlayer player, int x, int y, int z) {
+		if (!isInBoundary(x, y, z))
 			return false;
-		}
-		return getWorldObject().canMineBlockBody(player, localToGlobal(position));
+		return worldObj.canMineBlock(player, x + addX, y, z + addZ);
 	}
 
 	@Override
 	public void addTileEntity(TileEntity entity) {
-		getWorldObject().addTileEntity(entity);
-		entity.setWorld(getWorldObject());
-		entity.setPos(localToGlobal(entity.getPos()));
+		worldObj.addTileEntity(entity);
+		entity.setWorldObj(worldObj);
+		entity.xCoord += addX;
+		entity.zCoord += addZ;
 	}
 
 	@Override
-	public boolean isSideSolid(BlockPos position, EnumFacing side) {
-		if (!isInBoundary(position)) {
+	public boolean isSideSolid(int x, int y, int z, ForgeDirection side) {
+		if (!isInBoundary(x, y, z))
 			return false;
-		}
-		return getWorldObject().isSideSolid(localToGlobal(position), side);
+		return worldObj.isSideSolid(x + addX, y, z + addZ, side);
 	}
 
 	@Override
@@ -320,36 +281,35 @@ public class DisplacedView implements IWorldView {
 
 	@Override
 	public boolean spawnEntityAt(Entity entity, double x, double y, double z) {
-		entity.world = getWorldObject();
+		entity.worldObj = worldObj;
 		if (entity instanceof EntityLivingBase) {
-			((EntityLivingBase) entity).setPositionAndUpdate(x + blockDeltaX, y, z + blockDeltaZ);
+			((EntityLivingBase) entity).setPositionAndUpdate(x + addX, y, z + addZ);
 		} else {
-			entity.setLocationAndAngles(x + blockDeltaX, y, z + blockDeltaZ, 0, 0);
+			entity.setLocationAndAngles(x + addX, y, z + addZ, 0, 0);
 		}
-		if (!getWorldObject().spawnEntity(entity)) {
+		if (!worldObj.spawnEntityInWorld(entity))
 			return false;
-		}
 		return true;
 	}
 
 	@Override
 	public World getWorldObject() {
-		return worldRef.get();
+		return worldObj;
 	}
 
-	@Override
 	public void moveEntityTo(Entity entity, double posX, double posY, double posZ) {
-		BlockPos position = new BlockPos(posX, posY, posZ);
-		AreaTeleportation.moveEntityTo(entity, localToGlobal(position));
+		posX += addX;
+		posZ += addZ;
+		AreaTeleportation.moveEntityTo(entity, posX, posY, posZ);
 	}
 
 	@Override
-	public Vec3d convertToLocal(Vec3d global) {
-		return global.addVector(-blockDeltaX, 0, -blockDeltaZ);
+	public Vec3 convertToLocal(Vec3 global) {
+		return global.addVector(-addX, 0, -addZ);
 	}
 
 	@Override
-	public Vec3d convertToGlobal(Vec3d local) {
-		return local.addVector(blockDeltaX, 0, blockDeltaZ);
+	public Vec3 convertToGlobal(Vec3 local) {
+		return local.addVector(addX, 0, addZ);
 	}
 }

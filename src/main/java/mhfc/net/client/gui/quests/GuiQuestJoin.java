@@ -1,6 +1,5 @@
 package mhfc.net.client.gui.quests;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,6 +19,7 @@ import mhfc.net.common.network.message.quest.MessageMHFCInteraction;
 import mhfc.net.common.network.message.quest.MessageMHFCInteraction.Interaction;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.Slot;
 
 public class GuiQuestJoin extends MHFCGui implements IMHFCTab {
@@ -27,6 +27,7 @@ public class GuiQuestJoin extends MHFCGui implements IMHFCTab {
 	private static final int buttonHeight = 20;
 	private static final int yBorder = 15;
 
+	private final StringBuilder viewBuffer = new StringBuilder();
 	private int runningW = 70, runningX = 15;
 	private ClickableGuiList<GuiListStringItem> runningQuestList;
 	private Map<String, GuiListStringItem> mapToListItems;
@@ -36,7 +37,7 @@ public class GuiQuestJoin extends MHFCGui implements IMHFCTab {
 	private int page;
 	private boolean clickHandled;
 
-	public GuiQuestJoin() {
+	public GuiQuestJoin(EntityPlayer accessor) {
 		this.xSize = 374;
 		this.ySize = 220;
 		runningQuestList = new ClickableGuiList<>(width, height);
@@ -142,7 +143,7 @@ public class GuiQuestJoin extends MHFCGui implements IMHFCTab {
 		updateTab();
 		drawBackground(0);
 		super.draw(mousePosX, mousePosY, partialTick);
-		fontRenderer.drawString("Currently running:", 9, yBorder, MHFCGuiUtil.COLOUR_TEXT);
+		fontRendererObj.drawString("Currently running:", 9, yBorder, MHFCGuiUtil.COLOUR_TEXT);
 		runningQuestList.setVisible(true);
 		GuiListStringItem item = runningQuestList.getSelectedItem();
 		if (item == null) {
@@ -164,11 +165,11 @@ public class GuiQuestJoin extends MHFCGui implements IMHFCTab {
 				xSize - runningW - 2 * runningX,
 				ySize - 2 * yBorder,
 				page % pageCount,
-				fontRenderer);
+				fontRendererObj);
 	}
 
 	@Override
-	public boolean handleClick(float relativeX, float relativeY, int button) throws IOException {
+	public boolean handleClick(float relativeX, float relativeY, int button) {
 		clickHandled = false;
 		clickHandled |= super.handleClick(relativeX, relativeY, button);
 		if (!MHFCRegQuestVisual.hasPlayerQuest() // Is an info displayed

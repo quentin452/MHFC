@@ -1,6 +1,6 @@
 package mhfc.net.common.util.parsing;
 
-import mhfc.net.common.util.parsing.exceptions.SyntaxErrorException;
+import net.minecraft.command.SyntaxErrorException;
 
 public class BoundExpressionTranslator {
 

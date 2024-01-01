@@ -73,6 +73,7 @@ public class GuiQuestManagement extends MHFCGui implements IMHFCTab {
 		};
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public void initGui() {
 		buttonList.add(cancelQuest);
@@ -91,16 +92,15 @@ public class GuiQuestManagement extends MHFCGui implements IMHFCTab {
 		updateScreen();
 		drawBackground(0);
 		String warning = "You are already on a quest";
-		int warnX = (xSize - fontRenderer.getStringWidth(warning)) / 2, warnY = 60;
-		fontRenderer.drawString(warning, warnX, warnY, MHFCGuiUtil.COLOUR_TEXT);
+		int warnX = (xSize - fontRendererObj.getStringWidth(warning)) / 2, warnY = 60;
+		fontRendererObj.drawString(warning, warnX, warnY, MHFCGuiUtil.COLOUR_TEXT);
 		super.draw(mousePosX, mousePosY, partialTick);
 	}
 
 	@Override
 	public boolean containsSlot(Slot slot) {
-		if (slot.inventory instanceof InventoryPlayer) {
+		if (slot.inventory instanceof InventoryPlayer)
 			return true;
-		}
 		return chestSlots == null ? false : chestSlots.contains(slot);
 	}
 

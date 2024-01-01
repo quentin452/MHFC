@@ -1,7 +1,7 @@
 package mhfc.net;
 
-import mhfc.net.client.particle.EnumParticleType;
-import mhfc.net.client.particle.paint.ParticleEmitter;
+import mhfc.net.common.entity.particle.EnumParticleType;
+import mhfc.net.common.entity.type.EntityParticleEmitter;
 
 public abstract class ProxyBase {
 	public abstract void staticInit();
@@ -12,6 +12,5 @@ public abstract class ProxyBase {
 	 * @param type
 	 * @param emitter
 	 */
-	public void spawnPaintBallParticle(EnumParticleType type, ParticleEmitter emitter) {}
-
+	public void spawnParticle(EnumParticleType type, EntityParticleEmitter emitter) {}
 }

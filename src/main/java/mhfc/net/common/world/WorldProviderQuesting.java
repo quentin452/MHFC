@@ -2,25 +2,18 @@ package mhfc.net.common.world;
 
 import mhfc.net.common.core.registry.MHFCDimensionRegistry;
 import mhfc.net.common.quests.world.QuestFlair;
-import mhfc.net.common.world.gen.ChunkProviderVoid;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.DimensionType;
+import mhfc.net.common.world.gen.ChunkManagerQuesting;
+import mhfc.net.common.world.gen.ChunkProviderQuesting;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.world.WorldProvider;
-import net.minecraft.world.chunk.IChunkGenerator;
+import net.minecraft.world.chunk.IChunkProvider;
 
 public class WorldProviderQuesting extends WorldProvider {
 	private QuestFlair flair;
 
 	public WorldProviderQuesting() {
 		super();
-	}
-
-	public QuestFlair getQuestFlair() {
-		if (flair == null) {
-			// Maybe fallback to this.getDimension();
-			throw new IllegalStateException("Called too early, flair not set yet");
-		}
-		return flair;
 	}
 
 	@Override
@@ -30,57 +23,47 @@ public class WorldProviderQuesting extends WorldProvider {
 	}
 
 	@Override
-	public DimensionType getDimensionType() {
-		return MHFCDimensionRegistry.getDimensionType();
+	public String getDimensionName() {
+		return "MHFC Questing";
 	}
 
 	@Override
-	public BlockPos getRandomizedSpawnPoint() {
-		BlockPos.MutableBlockPos spawn = new BlockPos.MutableBlockPos(world.getSpawnPoint());
-		spawn.setY(world.getTopSolidOrLiquidBlock(spawn).getY());
+	public ChunkCoordinates getRandomizedSpawnPoint() {
+		ChunkCoordinates spawn = new ChunkCoordinates(worldObj.getSpawnPoint());
+		spawn.posY = worldObj.getTopSolidOrLiquidBlock(spawn.posX, spawn.posZ);
 		return spawn;
 	}
 
 	@Override
-	public void setWorldTime(long time) {
-		if (!world.isRemote) {
-			// Don't allow updates of world time by other means than accessing the world info
-			// Note that this does let through ticks, as long as the game rule "doDaylightCycle"
-			// is set to false, but will block commands like /time
-			return;
-		}
-		super.setWorldTime(time);
+	protected void registerWorldChunkManager() {
+		worldChunkMgr = new ChunkManagerQuesting(worldObj);
 	}
 
 	@Override
-	public IChunkGenerator createChunkGenerator() {
-		return new ChunkProviderVoid(world);
+	public IChunkProvider createChunkGenerator() {
+		return new ChunkProviderQuesting(worldObj);
 	}
 
 	@Override
-	public void updateWeather() {
-		// Ignore any weather updates (commands pass through :|)
-		return;
+	public boolean canMineBlock(EntityPlayer player, int x, int y, int z) {
+		return false;
 	}
 
 	@Override
-	public void resetRainAndThunder() {
-		// Ignore any weather updates
-		return;
+	public boolean canCoordinateBeSpawn(int x, int z) {
+		return true;
 	}
 
 	@Override
 	public void calculateInitialWeather() {
 		// As much as I'd like to move this to registerWorldChunkManager, I can't
 		// ^ called too early in the constructor, where the perWorldStorage hasn't been loaded yet
-		// FIXME: read the MHFCSaveData
-		this.world.getWorldInfo().setWorldTime(flair.worldTime);
-		this.world.getWorldInfo().setRaining(false);
-
-		//this.world.getGameRules().setOrCreateGameRule("doDaylightCycle", "false");
-		this.world.getGameRules().setOrCreateGameRule("doMobSpawning", "false");
-		this.world.getGameRules().setOrCreateGameRule("keepInventory", "true");
-		this.world.getGameRules().setOrCreateGameRule("doFireTick", "false");
 		super.calculateInitialWeather();
+		((ChunkManagerQuesting) this.worldChunkMgr).finishSetup();
+		this.worldObj.setWorldTime(flair.worldTime);
+		this.worldObj.getGameRules().setOrCreateGameRule("doDaylightCycle", "false");
+		this.worldObj.getGameRules().setOrCreateGameRule("doMobSpawning", "false");
+		this.worldObj.getGameRules().setOrCreateGameRule("keepInventory", "true");
+		this.worldObj.getGameRules().setOrCreateGameRule("doFireTick", "false");
 	}
 }

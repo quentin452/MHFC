@@ -87,7 +87,7 @@ public class SimpleRectanglePlacer implements IRectanglePlacer {
 
 		@Override
 		public CyclicIterator<Corner> cyclicIterator() {
-			return new CyclicIterator<>(this);
+			return new CyclicIterator<Corner>(this);
 		}
 
 		@Override
@@ -97,7 +97,7 @@ public class SimpleRectanglePlacer implements IRectanglePlacer {
 			if (realIndex < 0) {
 				realIndex += listSize;
 			}
-			return new CyclicIterator<>(this, realIndex);
+			return new CyclicIterator<Corner>(this, realIndex);
 		}
 	}
 
@@ -400,12 +400,12 @@ public class SimpleRectanglePlacer implements IRectanglePlacer {
 		}
 	}
 
-	private static void writeCornerPosition(NBTTagCompound nbtTag, CornerPosition pos) {
+	private void writeCornerPosition(NBTTagCompound nbtTag, CornerPosition pos) {
 		nbtTag.setInteger("x", pos.posX);
 		nbtTag.setInteger("y", pos.posY);
 	}
 
-	private static CornerPosition readCornerPosition(NBTTagCompound nbtTag) {
+	private CornerPosition readCornerPosition(NBTTagCompound nbtTag) {
 		return new CornerPosition(nbtTag.getInteger("x"), nbtTag.getInteger("y"));
 	}
 

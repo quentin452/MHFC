@@ -2,19 +2,16 @@ package mhfc.net.common.util.services;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-
-import org.apache.logging.log4j.Level;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import com.google.common.base.Preconditions;
-
-import mhfc.net.MHFCMain;
 
 /**
  * This singleton class offers a way to retrieve Services during different phases of the game. This is kind of a sanity
@@ -134,18 +131,20 @@ public class Services implements IServiceProvider {
 	private class ServiceEntry<T> implements IServiceAccess<T>, IServiceRetrieval<T> {
 		private final IServiceID<T> serviceID;
 		private T service = null;
+		private final Supplier<T> bootstrap;
 		private LifeCycle state = LifeCycle.NOT_INITIALIZED;
 		private IServiceHandle<T> handle;
 		private Set<IPhaseID<?, ?>> activePhases = new HashSet<>();
 
-		protected ServiceEntry(IServiceID<T> serviceID, IServiceHandle<T> handle) {
+		protected ServiceEntry(IServiceID<T> serviceID, Supplier<T> bootstrap, IServiceHandle<T> handle) {
 			this.serviceID = Objects.requireNonNull(serviceID);
+			this.bootstrap = Objects.requireNonNull(bootstrap);
 			this.handle = Objects.requireNonNull(handle);
 		}
 
 		private void ensureBootstrapped() {
 			if (state == LifeCycle.NOT_INITIALIZED) {
-				service = Objects.requireNonNull(handle.createInstance());
+				service = Objects.requireNonNull(bootstrap.get());
 				state = LifeCycle.BOOTSTRAPPED;
 			}
 			assert service != null;
@@ -168,7 +167,8 @@ public class Services implements IServiceProvider {
 
 		private void maybeDispose() {
 			assert state == LifeCycle.BOOTSTRAPPED;
-			// this implementation decides to never dispose of any services
+			// service = null;
+			// state = LifeCycle.NOT_INITIALIZED;
 		}
 
 		private void startup() {
@@ -227,6 +227,36 @@ public class Services implements IServiceProvider {
 		public Services getServiceProvider() {
 			return Services.this;
 		}
+
+		@Override
+		public <U> ServiceIndirection<U, T> withIndirection(Function<T, U> remap) {
+			return new ServiceIndirection<>(this, remap);
+		}
+	}
+
+	private class ServiceIndirection<T, O> implements IServiceRetrieval<T> {
+		private IServiceRetrieval<O> parent;
+		private Function<O, T> remap;
+
+		public ServiceIndirection(IServiceRetrieval<O> parent, Function<O, T> remapper) {
+			this.parent = Objects.requireNonNull(parent);
+			this.remap = Objects.requireNonNull(remapper);
+		}
+
+		@Override
+		public Optional<T> retrieveService() {
+			return parent.retrieveService().map(remap);
+		}
+
+		@Override
+		public IServiceProvider getServiceProvider() {
+			return Services.this;
+		}
+
+		@Override
+		public <U> ServiceIndirection<U, T> withIndirection(Function<T, U> remap) {
+			return new ServiceIndirection<>(this, remap);
+		}
 	}
 
 	private class PhaseEntry<A, Z> implements IPhaseAccess<A, Z> {
@@ -249,11 +279,6 @@ public class Services implements IServiceProvider {
 				service.afterPhase(PhaseEntry.this.getID());
 			}
 
-			protected void exitExceptionally(Throwable cause) {
-				phaseHandler.onPhaseEndExceptionally(service.getServiceDirect(), cause);
-				service.afterPhase(PhaseEntry.this.getID());
-			}
-
 			@Override
 			public boolean equals(Object obj) {
 				if (!(obj instanceof ServicePhaseEntry)) {
@@ -269,11 +294,11 @@ public class Services implements IServiceProvider {
 		}
 
 		private final IPhaseID<A, Z> phaseID;
-		private final LinkedHashSet<ServicePhaseEntry<?>> dependantServices;
+		private final Set<ServicePhaseEntry<?>> dependantServices;
 		private final Set<PhaseEntry<?, ?>> required;
 		private final Set<PhaseEntry<?, ?>> requiredFor;
-		private final LinkedHashSet<Consumer<A>> entryCallbacks;
-		private final LinkedHashSet<Consumer<Z>> exitCallbacks;
+		private final Set<Consumer<A>> entryCallbacks;
+		private final Set<Consumer<Z>> exitCallbacks;
 
 		private A defaultStartupContext;
 		private Z defaultShutdownContext;
@@ -281,11 +306,11 @@ public class Services implements IServiceProvider {
 
 		protected PhaseEntry(IPhaseID<A, Z> phase) {
 			this.phaseID = Objects.requireNonNull(phase);
-			this.dependantServices = new LinkedHashSet<>();
+			this.dependantServices = new HashSet<>();
 			this.required = new HashSet<>();
 			this.requiredFor = new HashSet<>();
-			this.entryCallbacks = new LinkedHashSet<>();
-			this.exitCallbacks = new LinkedHashSet<>();
+			this.entryCallbacks = new HashSet<>();
+			this.exitCallbacks = new HashSet<>();
 		}
 
 		private boolean isActive() {
@@ -340,23 +365,19 @@ public class Services implements IServiceProvider {
 			}
 		}
 
-		private void tryExitPhase(Throwable cause) {
+		private void tryExitPhase() {
 			if (!Services.this.isActive(phaseID)) {
 				return; // Checks for double-dependancies in requirements
 			}
-			if (hasDefaultShutdownContext) {
-				Services.this.exitPhase(phaseID, defaultShutdownContext);
-			} else {
-				Throwable joinedCause = new IllegalStateException(
-						"Can't exit phase " + phaseID + " without default shutdown context",
-						cause);
-				Services.this.exitPhaseExceptionally(phaseID, joinedCause);
-			}
+			Preconditions.checkState(
+					hasDefaultShutdownContext,
+					"Can't exit phase " + phaseID + " without default shutdown context");
+			Services.this.exitPhase(phaseID, defaultShutdownContext);
 		}
 
 		protected void exitServices(Z context) {
 			for (PhaseEntry<?, ?> phase : requiredFor) {
-				phase.tryExitPhase(null);
+				phase.tryExitPhase();
 			}
 			// Check after to catch cyclic requirements. Which we don't want to deal with
 			Preconditions.checkState(isActive(), "Currently not in phase " + phaseID);
@@ -365,17 +386,6 @@ public class Services implements IServiceProvider {
 			}
 			for (Consumer<Z> callback : exitCallbacks) {
 				callback.accept(context);
-			}
-		}
-
-		protected void exitServicesExceptionally(Throwable cause) {
-			for (PhaseEntry<?, ?> phase : requiredFor) {
-				phase.tryExitPhase(cause);
-			}
-			// Check after to catch cyclic requirements. Which we don't want to deal with
-			Preconditions.checkState(isActive(), "Currently not in phase " + phaseID);
-			for (ServicePhaseEntry<?> service : dependantServices) {
-				service.exitExceptionally(cause);
 			}
 		}
 
@@ -400,7 +410,7 @@ public class Services implements IServiceProvider {
 		}
 
 		@Override
-		public IPhaseAccess<A, Z> declareRequirement(IPhaseKey<?, ?> other) throws IllegalArgumentException {
+		public IPhaseAccess<A, Z> declareParent(IPhaseKey<?, ?> other) throws IllegalArgumentException {
 			Services.this.declareParent(getID(), tryUpcastPhase(other));
 			return this;
 		}
@@ -471,11 +481,14 @@ public class Services implements IServiceProvider {
 	}
 
 	@Override
-	public <T> IServiceAccess<T> registerService(String name, IServiceHandle<T> serviceBootstrap) {
+	public <T> IServiceAccess<T> registerService(
+			String name,
+			IServiceHandle<T> serviceBootstrap,
+			Supplier<T> serviceSupplier) {
 		IServiceID<T> serviceID = nextServiceID(name);
 		assert !hasService(serviceID);
 
-		ServiceEntry<T> entry = new ServiceEntry<>(serviceID, serviceBootstrap);
+		ServiceEntry<T> entry = new ServiceEntry<>(serviceID, serviceSupplier, serviceBootstrap);
 		addService(serviceID, entry);
 		return entry;
 	}
@@ -494,7 +507,6 @@ public class Services implements IServiceProvider {
 
 	private <T> IServiceRetrieval<T> tryUpcastService(IServiceKey<T> key) {
 		Preconditions.checkArgument(key instanceof IServiceRetrieval, "not a service key from this service provider");
-		@SuppressWarnings("unchecked")
 		IServiceRetrieval<T> entry = IServiceRetrieval.class.cast(key);
 		Preconditions.checkArgument(entry.getServiceProvider() == this, "not a service key from this service provider");
 		return entry;
@@ -502,7 +514,6 @@ public class Services implements IServiceProvider {
 
 	private <A, Z> IPhaseID<A, Z> tryUpcastPhase(IPhaseKey<A, Z> key) {
 		Preconditions.checkArgument(key instanceof PhaseEntry, "not a phase key from this service provider");
-		@SuppressWarnings("unchecked")
 		PhaseEntry<A, Z> entry = PhaseEntry.class.cast(key);
 		Preconditions.checkArgument(entry.getServiceProvider() == this, "not a phase key from this service provider");
 		IPhaseID<A, Z> id = entry.getID();
@@ -567,14 +578,6 @@ public class Services implements IServiceProvider {
 
 	private <Z> void exitPhase(IPhaseID<?, Z> phase, Z context) {
 		getPhase(phase).exitServices(context);
-
-		activePhases.remove(phase);
-		assert !isActive(phase);
-	}
-
-	private <Z> void exitPhaseExceptionally(IPhaseID<?, Z> phase, Throwable cause) {
-		MHFCMain.logger().catching(Level.DEBUG, cause);
-		getPhase(phase).exitServicesExceptionally(cause);
 
 		activePhases.remove(phase);
 		assert !isActive(phase);

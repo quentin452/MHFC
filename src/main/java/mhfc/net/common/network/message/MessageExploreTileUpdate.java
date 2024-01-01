@@ -6,12 +6,12 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.ByteBufOutputStream;
 import mhfc.net.MHFCMain;
+import mhfc.net.common.network.packet.MessageTileLocation;
 import mhfc.net.common.quests.world.QuestFlair;
 import mhfc.net.common.tile.TileExploreArea;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.WorldServer;
-import net.minecraftforge.fml.common.FMLCommonHandler;
-import net.minecraftforge.fml.relauncher.Side;
 
 public class MessageExploreTileUpdate extends MessageTileLocation {
 
@@ -55,11 +55,13 @@ public class MessageExploreTileUpdate extends MessageTileLocation {
 			flair = QuestFlair.DAYTIME;
 			try {
 				flair = QuestFlair.valueOf(flairStr);
-			} catch (IllegalArgumentException ex) {
+			} catch (IllegalArgumentException x) {
 				MHFCMain.logger().error(
-						"Invalid flair {} in update packet for explore tile {} in world {}",
+						"Invalid flair {} in update packet for explore tile {} {} {} in world {}",
 						flairStr,
-						getPos(),
+						x,
+						y,
+						z,
 						worldID);
 			}
 		} catch (IOException e) {
@@ -67,16 +69,14 @@ public class MessageExploreTileUpdate extends MessageTileLocation {
 		}
 	}
 
-	@Override
 	public TileExploreArea getTileEntity() {
-		assert FMLCommonHandler.instance().getSide() == Side.SERVER;
-		WorldServer worldServerForDimension = FMLCommonHandler.instance().getMinecraftServerInstance()
-				.worldServerForDimension(worldID);
-		TileEntity tileEntity = worldServerForDimension.getTileEntity(getPos());
+		WorldServer worldServerForDimension = MinecraftServer.getServer().worldServerForDimension(worldID);
+		TileEntity tileEntity = worldServerForDimension.getTileEntity(x, y, z);
 		if (tileEntity instanceof TileExploreArea) {
 			return (TileExploreArea) tileEntity;
+		} else {
+			MHFCMain.logger().error("Received invalid update for explore tile at {} {} {} in world {}", x, y, z, worldID);
+			return null;
 		}
-		MHFCMain.logger().error("Received invalid update for explore tile at {} in world {}", getPos(), worldID);
-		return null;
 	}
 }

@@ -32,7 +32,7 @@ public interface IActionRecorder<EntityT extends EntityLivingBase> {
 
 		public RecorderAdapter(int historyLength) {
 			maximum = historyLength;
-			actionHistory = new ArrayList<>();
+			actionHistory = new ArrayList<IExecutableAction<? super EntityT>>();
 		}
 
 		public void addAction(IExecutableAction<? super EntityT> action) {

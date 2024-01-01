@@ -1,128 +1,184 @@
 package mhfc.net.common.quests.world;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
-import java.util.function.Predicate;
-
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.Multiset;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import mhfc.net.common.world.AreaTeleportation;
 import mhfc.net.common.world.area.IArea;
 import mhfc.net.common.world.area.IWorldView;
-import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EntitySelectors;
-import net.minecraft.util.ITickable;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.SoundCategory;
-import net.minecraft.util.SoundEvent;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.IWorldEventListener;
+import net.minecraft.util.Vec3;
+import net.minecraft.world.IWorldAccess;
 import net.minecraft.world.World;
 
 public abstract class SpawnControllerAdapter implements IQuestAreaSpawnController {
 
-	protected class WorldAccessor implements IWorldEventListener {
+	public static interface Spawnable extends Function<World, Entity> {}
+
+	public static class SpawnInformation {
+		private Spawnable spawnable;
+		private double relX, relY, relZ;
+
+		public SpawnInformation(Spawnable entity, double relX, double relY, double relZ) {
+			this.spawnable = entity;
+			this.relX = relX;
+			this.relY = relY;
+			this.relZ = relZ;
+		}
+
+		public Spawnable getEntity() {
+			return spawnable;
+		}
+
+		public void setEntity(Spawnable entity) {
+			this.spawnable = entity;
+		}
+
+		public double getRelX() {
+			return relX;
+		}
+
+		public void setRelX(double relX) {
+			this.relX = relX;
+		}
+
+		public double getRelY() {
+			return relY;
+		}
+
+		public void setRelY(double relY) {
+			this.relY = relY;
+		}
+
+		public double getRelZ() {
+			return relZ;
+		}
+
+		public void setRelZ(double relZ) {
+			this.relZ = relZ;
+		}
+
+	}
+
+	protected class WorldAccessor implements IWorldAccess {
 
 		@Override
-		public void notifyLightSet(BlockPos pos) {}
+		public void markBlockForUpdate(int p_147586_1_, int p_147586_2_, int p_147586_3_) {}
 
 		@Override
-		public void notifyBlockUpdate(World world, BlockPos pos, IBlockState old, IBlockState now, int flags) {}
+		public void markBlockForRenderUpdate(int p_147588_1_, int p_147588_2_, int p_147588_3_) {}
 
 		@Override
-		public void markBlockRangeForRenderUpdate(int x1, int y1, int z1, int x2, int y2, int z2) {}
+		public void markBlockRangeForRenderUpdate(
+				int p_147585_1_,
+				int p_147585_2_,
+				int p_147585_3_,
+				int p_147585_4_,
+				int p_147585_5_,
+				int p_147585_6_) {}
+
+		@Override
+		public void playSound(
+				String p_72704_1_,
+				double p_72704_2_,
+				double p_72704_4_,
+				double p_72704_6_,
+				float p_72704_8_,
+				float p_72704_9_) {}
+
+		@Override
+		public void playSoundToNearExcept(
+				EntityPlayer p_85102_1_,
+				String p_85102_2_,
+				double p_85102_3_,
+				double p_85102_5_,
+				double p_85102_7_,
+				float p_85102_9_,
+				float p_85102_10_) {}
 
 		@Override
 		public void spawnParticle(
-				int p_190570_1_,
-				boolean p_190570_2_,
-				boolean p_190570_3_,
-				double p_190570_4_,
-				double p_190570_6_,
-				double p_190570_8_,
-				double p_190570_10_,
-				double p_190570_12_,
-				double p_190570_14_,
-				int... p_190570_16_) {}
+				String p_72708_1_,
+				double p_72708_2_,
+				double p_72708_4_,
+				double p_72708_6_,
+				double p_72708_8_,
+				double p_72708_10_,
+				double p_72708_12_) {}
 
 		@Override
-		public void broadcastSound(int soundID, BlockPos pos, int data) {}
-
-		@Override
-		public void playRecord(SoundEvent soundIn, BlockPos pos) {}
-
-		@Override
-		public void playSoundToAllNearExcept(
-				EntityPlayer player,
-				SoundEvent sound,
-				SoundCategory category,
-				double x,
-				double y,
-				double z,
-				float volume,
-				float pitch) {}
-
-		@Override
-		public void playEvent(EntityPlayer player, int type, BlockPos blockPosIn, int data) {}
-
-		@Override
-		public void sendBlockBreakProgress(int breakerId, BlockPos pos, int progress) {}
-
-		@Override
-		public void spawnParticle(
-				int particleID,
-				boolean ignoreRange,
-				double xCoord,
-				double yCoord,
-				double zCoord,
-				double xSpeed,
-				double ySpeed,
-				double zSpeed,
-				int... parameters) {}
-
-		@Override
-		public void onEntityAdded(Entity entity) {
-			Vec3d pos = entity.getPositionVector();
+		public void onEntityCreate(Entity entity) {
+			Vec3 pos = Vec3.createVectorHelper(entity.posX, entity.posY, entity.posZ);
 			pos = SpawnControllerAdapter.this.worldView.convertToLocal(pos);
-			if (!inArea(pos.xCoord, pos.yCoord, pos.zCoord)) {
+			if (!inArea(pos.xCoord, pos.yCoord, pos.zCoord))
 				return;
-			}
 			SpawnControllerAdapter.this.controlEntity(entity);
 		}
 
 		@Override
-		public void onEntityRemoved(Entity entity) {
+		public void onEntityDestroy(Entity entity) {
 			SpawnControllerAdapter.this.releaseEntity(entity);
 		}
+
+		@Override
+		public void playRecord(String p_72702_1_, int p_72702_2_, int p_72702_3_, int p_72702_4_) {}
+
+		@Override
+		public void broadcastSound(int p_82746_1_, int p_82746_2_, int p_82746_3_, int p_82746_4_, int p_82746_5_) {}
+
+		@Override
+		public void playAuxSFX(
+				EntityPlayer p_72706_1_,
+				int p_72706_2_,
+				int p_72706_3_,
+				int p_72706_4_,
+				int p_72706_5_,
+				int p_72706_6_) {}
+
+		@Override
+		public void destroyBlockPartially(
+				int p_147587_1_,
+				int p_147587_2_,
+				int p_147587_3_,
+				int p_147587_4_,
+				int p_147587_5_) {}
+
+		@Override
+		public void onStaticEntitiesChanged() {}
+
 	}
 
-	protected class TickerEntity extends TileEntity implements ITickable {
+	protected class TickerEntity extends TileEntity {
 		public TickerEntity() {
 			super();
-			pos = new BlockPos(0, 0, 0);
+			xCoord = 0;
+			yCoord = 0;
+			zCoord = 0;
 			tileEntityInvalid = false;
 		}
 
 		@Override
-		public void update() {
+		public void updateEntity() {
 			SpawnControllerAdapter.this.runSpawnCycle();
 		}
 	}
 
-	protected Set<Queue<EntityFactory>> spawnQueues;
-	protected Multiset<Class<? extends Entity>> aliveCount;
-	protected Multiset<Class<? extends Entity>> spawnMaximum;
+	protected Set<Queue<Spawnable>> spawnQueues;
+	protected Map<Class<? extends Entity>, Integer> aliveCount;
+	protected Map<Class<? extends Entity>, Integer> spawnMaximum;
 	protected Set<Entity> managedEntities;
 	protected TileEntity tickerEntity;
 	protected IWorldView worldView;
@@ -136,8 +192,8 @@ public abstract class SpawnControllerAdapter implements IQuestAreaSpawnControlle
 		Objects.requireNonNull(worldView);
 		this.worldView = worldView;
 		this.spawnQueues = new HashSet<>();
-		this.aliveCount = HashMultiset.create();
-		this.spawnMaximum = HashMultiset.create();
+		this.aliveCount = new HashMap<>();
+		this.spawnMaximum = new HashMap<>();
 		this.managedEntities = new HashSet<>();
 		this.tickerEntity = new TickerEntity();
 		worldView.addWorldAccess(new WorldAccessor());
@@ -145,41 +201,40 @@ public abstract class SpawnControllerAdapter implements IQuestAreaSpawnControlle
 	}
 
 	@Override
-	public void setDefaultSpawnsEnabled(boolean defaultSpawnsEnabled) {
-		if (defaultSpawnsEnabled) {
+	public void defaultSpawnsEnabled(boolean defaultSpawnsEnabled) {
+		if (defaultSpawnsEnabled)
 			enqueDefaultSpawns();
-		}
 	}
 
 	protected abstract void enqueDefaultSpawns();
 
+	protected abstract SpawnInformation constructDefaultSpawnInformation(Spawnable entity);
+
 	@Override
-	public void spawnEntity(EntityFactory factory) {
-		Objects.requireNonNull(factory);
-		BlockPos pos = areaInstance.resolveMonsterSpawn(IQuestArea.MONSTER_SPAWN);
-		spawnEntity(factory, pos.getX(), pos.getY(), pos.getZ());
+	public void spawnEntity(String entityID) {
+		spawnEntity((world) -> EntityList.createEntityByName(entityID, world));
 	}
 
 	@Override
-	public void spawnEntity(EntityFactory factory, double x, double y, double z) {
-		Objects.requireNonNull(factory);
-		EntityFactory factoryWithPos = factory.andThenConfigure(e -> {
-			if (e == null) {
-				return null;
-			}
-			e.setPosition(x, y, z);
-			return e;
-		});
-		doSpawnEntity(factoryWithPos);
+	public void spawnEntity(String entityID, double x, double y, double z) {
+		spawnEntity(new SpawnInformation((world) -> EntityList.createEntityByName(entityID, world), x, y, z));
 	}
 
 	@Override
-	public void enqueueSpawns(Queue<EntityFactory> qu) {
+	public void spawnEntity(Spawnable entity) {
+		spawnEntity(constructDefaultSpawnInformation(entity));
+	}
+
+	public void spawnEntity(Spawnable entity, double x, double y, double z) {
+		spawnEntity(new SpawnInformation(entity, x, y, z));
+	}
+
+	@Override
+	public void enqueueSpawns(Queue<Spawnable> qu) {
 		spawnQueues.add(qu);
 	}
 
-	@Override
-	public void dequeueSpawns(Queue<EntityFactory> qu) {
+	public void dequeueSpawns(Queue<Spawnable> qu) {
 		spawnQueues.remove(qu);
 	}
 
@@ -189,30 +244,39 @@ public abstract class SpawnControllerAdapter implements IQuestAreaSpawnControlle
 	}
 
 	@Override
-	public void setGenerationMaximum(ResourceLocation entityID, int maxAmount) {
-		Class<? extends Entity> clazz = EntityList.getClass(entityID);
-		if (clazz == null) {
+	public void setGenerationMaximum(String entityID, int maxAmount) {
+		@SuppressWarnings("unchecked")
+		Class<? extends Entity> clazz = (Class<? extends Entity>) EntityList.stringToClassMapping.get(entityID);
+		if (clazz == null)
 			return;
-		}
 		setGenerationMaximum(clazz, maxAmount);
 	}
 
 	@Override
 	public <T extends Entity> void setGenerationMaximum(Class<T> entityclass, int maxAmount) {
-		spawnMaximum.setCount(entityclass, maxAmount);
+		spawnMaximum.put(entityclass, maxAmount);
 	}
 
 	@Override
+	public int clearArea() {
+		List<Entity> allEntities = new ArrayList<>(managedEntities);
+		return allEntities.stream().filter((e) -> despawnEntity(e)).collect(Collectors.counting()).intValue();
+	}
+
 	public Set<Entity> getControlledEntities() {
 		return Collections.unmodifiableSet(this.managedEntities);
 	}
 
 	@Override
-	public int clearAreaOf(Predicate<Entity> predicate) {
-		List<Entity> allEntities = worldView.getAllMatchingEntities(predicate);
+	public int clearAreaOf(String entityClassID) {
+		@SuppressWarnings("unchecked") // This cast should be safe, EntityList does it itself
+		Class<? extends Entity> clazz = (Class<? extends Entity>) EntityList.stringToClassMapping.get(entityClassID);
+		if (clazz == null)
+			return 0;
+		List<Entity> allEntities = new ArrayList<>(managedEntities);
 
-		return (int) allEntities.stream().filter(predicate).filter(EntitySelectors.NOT_SPECTATING::apply)
-				.filter(this::despawnEntity).count();
+		return allEntities.stream().filter((e) -> clazz.isInstance(e)).filter((e) -> despawnEntity(e))
+				.collect(Collectors.counting()).intValue();
 	}
 
 	protected boolean inArea(double posX, double posY, double posZ) {
@@ -222,20 +286,16 @@ public abstract class SpawnControllerAdapter implements IQuestAreaSpawnControlle
 	/**
 	 * Directly spawns the given entity at the position. Forces the spawn
 	 */
-	protected boolean doSpawnEntity(EntityFactory spawnable) {
-		Entity entity = spawnable.apply(worldView.getWorldObject(), areaInstance);
-		if (entity == null) {
-			return false;
-		}
+	protected boolean spawnEntity(SpawnInformation information) {
+		Entity entity = information.spawnable.apply(worldView.getWorldObject());
 		AreaTeleportation.assignAreaForEntity(entity, areaInstance);
-		worldView.spawnEntityAt(entity, entity.posX, entity.posY, entity.posZ);
-		controlEntity(entity);
-		return true;
+		worldView.spawnEntityAt(entity, information.relX, information.relY, information.relZ);
+		return controlEntity(entity);
 	}
 
 	/**
 	 * Directly despawns the entity (if it is managed) and removes it from this manager.
-	 *
+	 * 
 	 * @param entity
 	 * @return
 	 */
@@ -248,12 +308,12 @@ public abstract class SpawnControllerAdapter implements IQuestAreaSpawnControlle
 	 * This method should be called by all methods spawning an entity
 	 */
 	protected boolean controlEntity(Entity entity) {
-		if (!managedEntities.add(entity)) {
+		if (!managedEntities.add(entity))
 			return false;
-		}
 
 		Class<? extends Entity> clazz = entity.getClass();
-		aliveCount.add(clazz);
+		Integer count = aliveCount.getOrDefault(clazz, new Integer(0));
+		aliveCount.put(clazz, count.intValue() + 1);
 		return true;
 	}
 
@@ -262,43 +322,34 @@ public abstract class SpawnControllerAdapter implements IQuestAreaSpawnControlle
 	 * and maps, not the actual world.
 	 */
 	protected boolean releaseEntity(Entity entity) {
-		if (!managedEntities.remove(entity)) {
+		if (!managedEntities.remove(entity))
 			return false;
-		}
 
 		Class<? extends Entity> clazz = entity.getClass();
-		boolean removed = aliveCount.remove(clazz);
-		assert removed;
+		Integer count = aliveCount.get(clazz);
+		aliveCount.put(clazz, count.intValue() - 1);
 		return true;
 	}
 
 	@Override
 	public void runSpawnCycle() {
-		Iterator<Queue<EntityFactory>> it = spawnQueues.iterator();
+		Iterator<Queue<Spawnable>> it = spawnQueues.iterator();
 		while (it.hasNext()) {
-			Queue<EntityFactory> spawnQ = it.next();
-			EntityFactory firstEnt = spawnQ.peek();
-			if (firstEnt == null) {
+			Queue<Spawnable> spawnQ = it.next();
+			Spawnable firstEnt = spawnQ.peek();
+			if (firstEnt == null)
 				it.remove();
-				continue;
-			}
-			if (doSpawnEntity(firstEnt.andThenConfigure(this::enforceSpawnLimit))) {
-				// consume the element
-				EntityFactory polled = spawnQ.poll();
-				assert polled == firstEnt;
-			}
+			if (spawnIfFreeSlots(firstEnt))
+				spawnQ.poll();
 		}
 	}
 
-	private Entity enforceSpawnLimit(Entity entity) {
-		if (entity == null) {
-			return null;
-		}
-		Class<? extends Entity> entityClass = entity.getClass();
-		if (spawnMaximum.contains(entityClass) && aliveCount.count(entityClass) >= spawnMaximum.count(entityClass)) {
-			return null; // Skip spawn
-		}
-		return entity;
+	private boolean spawnIfFreeSlots(Spawnable firstEnt) {
+		Entity entity = firstEnt.apply(worldView.getWorldObject());
+		if (aliveCount.getOrDefault(entity.getClass(), 0) >= spawnMaximum.getOrDefault(entity.getClass(), 0))
+			return false;
+		spawnEntity((world) -> entity);
+		return true;
 	}
 
 }

@@ -1,35 +1,28 @@
 package mhfc.net.common.ai.general.provider.simple;
 
-import java.util.Objects;
+import mhfc.net.common.ai.IExecutableAction;
+import net.minecraft.entity.EntityLiving;
 
-import mhfc.net.common.ai.general.actions.AnimatedAction;
+public interface IContinuationPredicate<EntityT extends EntityLiving> {
 
-public interface IContinuationPredicate {
-	/**
-	 * Usage:<br>
-	 * <code><pre>
-	 *protected IContinuationPredicate provideContinuationPredicate() {
-	 *    return IContinuationPredicate.untilFrame(this, LAST_FRAME);
-	 *}
-	 * </pre></code>
-	 *
-	 * @param action
-	 * @param lastFrame
-	 * @return
-	 */
-	public static IContinuationPredicate untilFrame(AnimatedAction<?> action, int lastFrame) {
-		return () -> action.getCurrentFrame() < lastFrame;
+	public boolean shouldContinueAction(IExecutableAction<? super EntityT> attack, EntityT actor);
+
+	public static class HasTargetAdapter<EntityT extends EntityLiving> implements IContinuationPredicate<EntityT> {
+
+		@Override
+		public boolean shouldContinueAction(IExecutableAction<? super EntityT> attack, EntityT actor) {
+			return actor.getAttackTarget() != null;
+		}
+
 	}
 
-	public boolean shouldContinueAction();
+	public static class HasNoTargetAdapter<EntityT extends EntityLiving> implements IContinuationPredicate<EntityT> {
 
-	default IContinuationPredicate and(IContinuationPredicate other) {
-		Objects.requireNonNull(other);
-		return () -> shouldContinueAction() && other.shouldContinueAction();
+		@Override
+		public boolean shouldContinueAction(IExecutableAction<? super EntityT> attack, EntityT actor) {
+			return actor.getAttackTarget() == null;
+		}
+
 	}
 
-	default IContinuationPredicate or(IContinuationPredicate other) {
-		Objects.requireNonNull(other);
-		return () -> shouldContinueAction() || other.shouldContinueAction();
-	}
 }

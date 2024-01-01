@@ -1,18 +1,16 @@
 package mhfc.net.common.core.registry;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 import javax.annotation.Nonnull;
 
-import com.google.gson.JsonElement;
-import com.mojang.authlib.GameProfile;
-
+import cpw.mods.fml.common.FMLCommonHandler;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerRespawnEvent;
+import mhfc.net.MHFCMain;
 import mhfc.net.common.core.data.KeyToInstanceRegistryData;
-import mhfc.net.common.quests.world.QuestFlair;
 import mhfc.net.common.world.area.IActiveArea;
 import mhfc.net.common.world.area.IAreaType;
 import mhfc.net.common.world.exploration.ExplorationProperties;
@@ -21,135 +19,88 @@ import mhfc.net.common.world.exploration.MHFCExploration;
 import mhfc.net.common.world.exploration.OverworldManager;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
-import net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerRespawnEvent;
 
 public class MHFCExplorationRegistry {
 
-	public static final ResourceLocation NAME_OVERWORLD = new ResourceLocation("mhfc:overworld");
-	public static final ResourceLocation NAME_MHFC_EXPLORATION = new ResourceLocation("mhfcExploration");
+	public static final String NAME_OVERWORLD = "overworld";
+	public static final String NAME_MHFC_EXPLORATION = "mhfcExploration";
 
-	private static KeyToInstanceRegistryData<ResourceLocation, Class<? extends IExplorationManager>> explorationManagers = new KeyToInstanceRegistryData<>();
-	private static Map<ResourceLocation, Function<GameProfile, ? extends IExplorationManager>> factories = new HashMap<>();
+	private static KeyToInstanceRegistryData<String, IExplorationManager> explorationManagers = new KeyToInstanceRegistryData<>();
 
 	public static class RespawnListener {
 		@SubscribeEvent
 		public void onInitialSpawn(PlayerLoggedInEvent loggedIn) {
-			if (loggedIn.player.world.isRemote) {
+			if (loggedIn.player.worldObj.isRemote)
 				return;
-			}
 			EntityPlayerMP player = (EntityPlayerMP) loggedIn.player;
 			IExplorationManager manager = getExplorationManagerFor(player);
-			manager.onPlayerJoined();
-			manager.onPlayerAdded();
+			manager.onPlayerAdded(player);
+			manager.initialAddPlayer(player);
 		}
 
 		@SubscribeEvent
 		public void onRespawn(PlayerRespawnEvent spawn) {
-			if (spawn.player.world.isRemote) {
+			if (spawn.player.worldObj.isRemote)
 				return;
-			}
 			EntityPlayerMP player = (EntityPlayerMP) spawn.player;
-			respawnPlayer(player, null);
+			getExplorationManagerFor(player).respawn(player);
 		}
 	}
 
 	public static void init() {
 		RespawnListener listener = new RespawnListener();
-		MinecraftForge.EVENT_BUS.register(listener);
-		registerPersistantExplorationManager(NAME_OVERWORLD, OverworldManager.class, OverworldManager::new);
-		registerPersistantExplorationManager(NAME_MHFC_EXPLORATION, MHFCExploration.class, MHFCExploration::new);
+		FMLCommonHandler.instance().bus().register(listener);
+		registerExplorationManager(NAME_OVERWORLD, OverworldManager.instance);
+		registerExplorationManager(NAME_MHFC_EXPLORATION, MHFCExploration.instance);
 	}
 
-	public static <T extends IExplorationManager> boolean registerPersistantExplorationManager(
-			ResourceLocation key,
-			Class<? extends T> clazz,
-			Function<GameProfile, ? extends T> factory) {
-		Objects.requireNonNull(clazz);
-		Objects.requireNonNull(factory);
-		boolean success = explorationManagers.offerMapping(key, clazz);
-		if (success) {
-			factories.put(key, factory);
-		}
-		return success;
+	public static boolean registerExplorationManager(String key, IExplorationManager data) {
+		return explorationManagers.offerMapping(key, data);
 	}
 
-	public static Function<GameProfile, ? extends IExplorationManager> getExplorationManagerByName(
-			ResourceLocation key) {
-		return factories.get(key);
+	public static IExplorationManager getExplorationManagerByName(String key) {
+		return explorationManagers.getData(key);
 	}
 
-	public static ResourceLocation getExplorationManagerName(IExplorationManager manager) {
-		return manager == null ? null : explorationManagers.getKey(manager.getClass());
+	public static String getExplorationManagerName(IExplorationManager exploration) {
+		return explorationManagers.getKey(exploration);
 	}
 
-	public static IExplorationManager bindPlayer(IExplorationManager manager, GameProfile player) {
+	public static boolean bindPlayer(IExplorationManager manager, EntityPlayerMP player) {
+		Objects.requireNonNull(manager);
 		Objects.requireNonNull(player);
-		return getExplorationProperties(player).replaceManager(manager);
+		IExplorationManager current = getExplorationManagerFor(player);
+		MHFCMain.logger().debug("Moving player from exploration manager {} to {}", current, manager);
+		if (current == manager)
+			return false;
+		current.onPlayerRemove(player);
+		getExplorationProperties(player).setManager(manager);
+		manager.onPlayerAdded(player);
+		return true;
 	}
 
-	public static IExplorationManager releasePlayer(GameProfile player) {
+	public static void releasePlayer(EntityPlayerMP player) {
 		Objects.requireNonNull(player);
-		return bindPlayer(new OverworldManager(player), player);
+		bindPlayer(OverworldManager.instance, player);
 	}
 
-	public static IExplorationManager releasePlayer(EntityPlayer player) {
-		return releasePlayer(player.getGameProfile());
-	}
-
-	public static CompletionStage<IActiveArea> transferPlayer(GameProfile player, IAreaType area, QuestFlair flair) {
+	public static void transferPlayer(EntityPlayerMP player, IAreaType area, Consumer<IActiveArea> callback) {
 		IExplorationManager manager = getExplorationManagerFor(player);
-		CompletionStage<IActiveArea> areaStage = manager.transferPlayerInto(area, flair);
-		return areaStage;
-	}
-
-	public static CompletionStage<IActiveArea> transferPlayer(EntityPlayer player, IAreaType area, QuestFlair flair) {
-		return transferPlayer(player.getGameProfile(), area, flair);
+		manager.transferPlayerInto(player, area, callback);
+		getExplorationProperties(player).setAreaType(area);
 	}
 
 	@Nonnull
-	public static IExplorationManager getExplorationManagerFor(GameProfile player) {
+	public static IExplorationManager getExplorationManagerFor(EntityPlayerMP player) {
 		Objects.requireNonNull(player);
-		ExplorationProperties explorationProperties = getExplorationProperties(player);
-
-		return setupExplorationProperties(player, explorationProperties);
-	}
-
-	@Nonnull
-	public static IExplorationManager getExplorationManagerFor(EntityPlayer player) {
-		Objects.requireNonNull(player);
-		ExplorationProperties explorationProperties = getExplorationProperties(player);
-
-		return setupExplorationProperties(player.getGameProfile(), explorationProperties);
-	}
-
-	private static IExplorationManager setupExplorationProperties(
-			GameProfile playerProfile,
-			ExplorationProperties explorationProperties) {
-		IExplorationManager manager = explorationProperties.getManager();
-		if (manager == null) {
-			manager = new OverworldManager(playerProfile);
-			explorationProperties.replaceManager(manager);
-		}
-		return manager;
-	}
-
-	public static ExplorationProperties getExplorationProperties(GameProfile player) {
-		return MHFCPlayerPropertiesRegistry.getPlayerProperties(player).getExploration();
+		return getExplorationProperties(player).getManager();
 	}
 
 	public static ExplorationProperties getExplorationProperties(EntityPlayer player) {
 		return MHFCPlayerPropertiesRegistry.getPlayerProperties(player).getExploration();
 	}
 
-	public static void respawnPlayer(GameProfile player, JsonElement saveData) {
-		getExplorationManagerFor(player).respawn(saveData);
-	}
-
-	public static void respawnPlayer(EntityPlayer player, JsonElement saveData) {
-		getExplorationManagerFor(player).respawn(saveData);
+	public static void respawnPlayer(EntityPlayerMP player) {
+		getExplorationManagerFor(player).respawn(player);
 	}
 }

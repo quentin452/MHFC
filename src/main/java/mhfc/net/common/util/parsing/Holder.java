@@ -15,6 +15,7 @@ import mhfc.net.common.util.function.ByteSupplier;
 import mhfc.net.common.util.function.CharSupplier;
 import mhfc.net.common.util.function.FloatSupplier;
 import mhfc.net.common.util.function.ShortSupplier;
+import mhfc.net.common.util.parsing.valueholders.Any;
 
 /**
  * A Holder is the <b>immutable</b> version of an Any and the general basecase.
@@ -58,12 +59,6 @@ public final class Holder implements IValueHolder {
 	}
 
 	private static abstract class BasicWrapper implements Wrapper {
-
-		@Override
-		public abstract boolean equals(Object obj);
-
-		@Override
-		public abstract int hashCode();
 
 		@SuppressWarnings("unchecked")
 		public <T> Supplier<T> asBoxedPrimitive(Class<T> clazz) {
@@ -112,12 +107,6 @@ public final class Holder implements IValueHolder {
 		public PrimitiveWrapper() {
 			boxedClazz = Objects.requireNonNull(getBoxedClass());
 		}
-
-		@Override
-		public abstract boolean equals(Object obj);
-
-		@Override
-		public abstract int hashCode();
 
 		protected abstract B boxed();
 
@@ -193,26 +182,6 @@ public final class Holder implements IValueHolder {
 		}
 
 		@Override
-		public int hashCode() {
-			return Boolean.hashCode(bool) * 31;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (!(obj instanceof BooleanWrapper)) {
-				return false;
-			}
-			BooleanWrapper other = (BooleanWrapper) obj;
-			return bool == other.bool;
-		}
-
-		@Override
 		public BooleanSupplier asBool() {
 			return () -> bool;
 		}
@@ -241,26 +210,6 @@ public final class Holder implements IValueHolder {
 		}
 
 		@Override
-		public int hashCode() {
-			return Character.hashCode(ch) * 31;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (!(obj instanceof CharWrapper)) {
-				return false;
-			}
-			CharWrapper other = (CharWrapper) obj;
-			return ch == other.ch;
-		}
-
-		@Override
 		protected Character boxed() {
 			return Character.valueOf(ch);
 		}
@@ -281,26 +230,6 @@ public final class Holder implements IValueHolder {
 
 		public ByteWrapper(byte b) {
 			this.b = b;
-		}
-
-		@Override
-		public int hashCode() {
-			return Byte.hashCode(b) * 31;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (!(obj instanceof ByteWrapper)) {
-				return false;
-			}
-			ByteWrapper other = (ByteWrapper) obj;
-			return b == other.b;
 		}
 
 		@Override
@@ -357,26 +286,6 @@ public final class Holder implements IValueHolder {
 		}
 
 		@Override
-		public int hashCode() {
-			return Short.hashCode(sh) * 31;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (!(obj instanceof ShortWrapper)) {
-				return false;
-			}
-			ShortWrapper other = (ShortWrapper) obj;
-			return sh == other.sh;
-		}
-
-		@Override
 		public ShortSupplier asShort() {
 			return () -> this.sh;
 		}
@@ -425,26 +334,6 @@ public final class Holder implements IValueHolder {
 		}
 
 		@Override
-		public int hashCode() {
-			return Integer.hashCode(i) * 31;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (!(obj instanceof IntWrapper)) {
-				return false;
-			}
-			IntWrapper other = (IntWrapper) obj;
-			return i == other.i;
-		}
-
-		@Override
 		public IntSupplier asInt() {
 			return () -> this.i;
 		}
@@ -488,26 +377,6 @@ public final class Holder implements IValueHolder {
 		}
 
 		@Override
-		public int hashCode() {
-			return Long.hashCode(l) * 31;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (!(obj instanceof LongWrapper)) {
-				return false;
-			}
-			LongWrapper other = (LongWrapper) obj;
-			return l == other.l;
-		}
-
-		@Override
 		public LongSupplier asLong() {
 			return () -> this.l;
 		}
@@ -546,26 +415,6 @@ public final class Holder implements IValueHolder {
 		}
 
 		@Override
-		public int hashCode() {
-			return Float.hashCode(f) * 31;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (!(obj instanceof FloatWrapper)) {
-				return false;
-			}
-			FloatWrapper other = (FloatWrapper) obj;
-			return f == other.f;
-		}
-
-		@Override
 		public FloatSupplier asFloat() {
 			return () -> this.f;
 		}
@@ -599,26 +448,6 @@ public final class Holder implements IValueHolder {
 		}
 
 		@Override
-		public int hashCode() {
-			return Double.hashCode(d) * 31;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (!(obj instanceof DoubleWrapper)) {
-				return false;
-			}
-			DoubleWrapper other = (DoubleWrapper) obj;
-			return d == other.d;
-		}
-
-		@Override
 		public DoubleSupplier asDouble() {
 			return () -> this.d;
 		}
@@ -640,23 +469,6 @@ public final class Holder implements IValueHolder {
 	}
 
 	private static class VoidWrapper extends PrimitiveWrapper<Void> {
-
-		@Override
-		public int hashCode() {
-			return Boolean.hashCode(true) << 2 ^ Boolean.hashCode(false);
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			return obj instanceof VoidWrapper;
-		}
-
 		@Override
 		public <T> Supplier<T> asObject(Class<T> clazz) {
 			return null;
@@ -720,26 +532,6 @@ public final class Holder implements IValueHolder {
 			this.obj = clazz.cast(obj);
 			this.clazz = Objects.requireNonNull(clazz);
 			updateSuppliers();
-		}
-
-		@Override
-		public int hashCode() {
-			return Objects.hashCode(obj) * 31;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (!(obj instanceof ObjectWrapper)) {
-				return false;
-			}
-			ObjectWrapper other = (ObjectWrapper) obj;
-			return Objects.equals(obj, other.obj);
 		}
 
 		@SuppressWarnings("unchecked")
@@ -1077,7 +869,7 @@ public final class Holder implements IValueHolder {
 		this.wrap = value == null ? VOID_WRAPPER : new ObjectWrapper(value);
 	}
 
-	private Holder(Class<?> clazz, ClassTag tag) {
+	private <F> Holder(Class<?> clazz, ClassTag tag) {
 		this.wrap = new ObjectWrapper(clazz, tag);
 	}
 
@@ -1087,7 +879,7 @@ public final class Holder implements IValueHolder {
 
 	@Override
 	public boolean equals(Object obj) {
-		if (!(obj instanceof Holder)) {
+		if (!(obj instanceof Any)) {
 			return false;
 		}
 		Holder o = (Holder) obj;
@@ -1095,12 +887,9 @@ public final class Holder implements IValueHolder {
 		if (!this.isValid() || !o.isValid()) {
 			return false;
 		}
-		return wrap.equals(o.wrap);
-	}
-
-	@Override
-	public int hashCode() {
-		return wrap.hashCode();
+		Object thisBoxed = this.boxed();
+		Object otherBoxed = o.boxed();
+		return thisBoxed == null ? otherBoxed == null : thisBoxed.equals(otherBoxed);
 	}
 
 	public Object boxed() {

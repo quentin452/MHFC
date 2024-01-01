@@ -10,8 +10,8 @@ public class StringProperty extends ImmutableProperty<String> {
 		return new NBTTagString(value);
 	}
 
-	private static String load(String oldValue, NBTBase nbt) {
-		return NBTType.TAG_STRING.assureTagType(nbt).getString();
+	private static String load(String s, NBTBase nbt) {
+		return NBTType.TAG_STRING.assureTagType(nbt).func_150285_a_();
 	}
 
 	private StringProperty(Runnable parentSetDirty, String initialValue) {

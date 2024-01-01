@@ -2,7 +2,7 @@ package mhfc.net.common.weapon.stats;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Objects;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -26,7 +26,7 @@ public class WeaponStats {
 		private int slots;
 		private int cooldownTicks;
 		private ItemRarity rarity; // FIXME: when merged with Items, change this to the correct enum
-		private Optional<String> unlocalizedName;
+		private String unlocalizedName;
 
 		public WeaponStatsBuilder() {
 			this.attackBase = 0;
@@ -34,7 +34,6 @@ public class WeaponStats {
 			this.slots = 0;
 			this.cooldownTicks = 0;
 			this.rarity = ItemRarity.R01;
-			this.unlocalizedName = Optional.empty();
 		}
 
 		protected abstract T getThis();
@@ -73,22 +72,15 @@ public class WeaponStats {
 		}
 
 		public T setName(String unlocalizedName) {
-			this.unlocalizedName = Optional.of(unlocalizedName);
+			this.unlocalizedName = Objects.requireNonNull(unlocalizedName);
 			return getThis();
 		}
 
 		public WeaponStats build() {
+			Preconditions.checkState(unlocalizedName != null, "must set a unlocalized name for this item");
 			return new WeaponStats(this);
 		}
 	}
-
-	private final float attackBase;
-	private final List<CombatEffect> combatEffects;
-	@SuppressWarnings("unused")
-	private final int slotCount;
-	private final int cooldownTicks;
-	private final ItemRarity rarity;
-	private final String name;
 
 	protected WeaponStats(WeaponStatsBuilder<?> builder) {
 		this.attackBase = builder.attackBase;
@@ -96,15 +88,22 @@ public class WeaponStats {
 		this.slotCount = builder.slots;
 		this.cooldownTicks = builder.cooldownTicks;
 		this.rarity = builder.rarity;
-		this.name = builder.unlocalizedName.get();
+		this.name = builder.unlocalizedName;
 	}
 
+	private final float attackBase;
+	private final List<CombatEffect> combatEffects;
+	private final int slotCount;
+	private final int cooldownTicks;
+	private final ItemRarity rarity;
+	private final String name;
+
 	public float getAttack() {
-		return getAttack(1.0f);
+		return attackBase;
 	}
 
 	public float getAttack(float scale) {
-		return scale * attackBase;
+		return scale * getAttack();
 	}
 
 	public int getCooldownTicks() {

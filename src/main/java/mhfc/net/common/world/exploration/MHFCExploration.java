@@ -1,46 +1,48 @@
 package mhfc.net.common.world.exploration;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Consumer;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
-import com.google.gson.JsonElement;
-import com.mojang.authlib.GameProfile;
-
+import mhfc.net.MHFCMain;
 import mhfc.net.common.core.registry.MHFCExplorationRegistry;
 import mhfc.net.common.quests.world.QuestFlair;
-import mhfc.net.common.util.BiMultiMap;
-import mhfc.net.common.util.HashBiMultiMap;
+import mhfc.net.common.world.AreaTeleportation;
 import mhfc.net.common.world.area.IActiveArea;
 import mhfc.net.common.world.area.IAreaType;
+import mhfc.net.common.world.types.areas.VillagePokeType;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 public class MHFCExploration extends ExplorationAdapter {
-	private static final Table<IAreaType, QuestFlair, Collection<IActiveArea>> AREA_INSTANCES = HashBasedTable.create();
-	private static final BiMultiMap<IActiveArea, GameProfile> INHABITANTS = new HashBiMultiMap<>();
 
-	private static final Map<GameProfile, IAreaType> LAST_VISITED_AREA = new HashMap<>();
-	private static final Map<GameProfile, QuestFlair> LAST_FLAIR = new HashMap<>();
+	public static final MHFCExploration instance = new MHFCExploration();
+	protected Map<EntityPlayerMP, IAreaType> lastVisitedInstance;
 
-	private static final Map<IAreaType, Integer> maximumAllowedPlayer = new HashMap<>();
+	private Map<IAreaType, Integer> maximumAllowedPlayer;
 
-	public MHFCExploration(GameProfile player) {
-		super(player);
-	}
-
-	@Override
-	protected BiMultiMap<IActiveArea, GameProfile> getInhabitants() {
-		return INHABITANTS;
-	}
-
-	@Override
-	protected Table<IAreaType, QuestFlair, Collection<IActiveArea>> getManagedInstances() {
-		return AREA_INSTANCES;
+	protected MHFCExploration() {
+		maximumAllowedPlayer = new HashMap<>();
+		lastVisitedInstance = new HashMap<>();
 	}
 
 	private boolean isInstanceFull(IActiveArea instance) {
 		return getInhabitants(instance).size() >= getMaximumPlayerCount(instance.getType());
+	}
+
+	@Override
+	protected void transferIntoInstance(EntityPlayerMP player, IAreaType type, Consumer<IActiveArea> callback) {
+		Optional<IActiveArea> eligibleArea = getAreasOfType(type).stream().filter((inst) -> !isInstanceFull(inst))
+				.findAny();
+		if (eligibleArea.isPresent()) {
+			MHFCMain.logger().debug("Transfering player into existing instance");
+			IActiveArea area = eligibleArea.get();
+			transferIntoInstance(player, area);
+			callback.accept(area);
+		} else {
+			MHFCMain.logger().debug("Transfering player into new instance");
+			transferIntoNewInstance(player, type, callback);
+		}
 	}
 
 	protected int getMaximumPlayerCount(IAreaType type) {
@@ -48,39 +50,37 @@ public class MHFCExploration extends ExplorationAdapter {
 	}
 
 	@Override
-	protected boolean canTransferIntoArea(IActiveArea area) {
-		return !isInstanceFull(area);
+	protected void transferIntoInstance(EntityPlayerMP player, IActiveArea area) {
+		super.transferIntoInstance(player, area);
+		lastVisitedInstance.put(player, area.getType());
 	}
 
 	@Override
-	protected void transferIntoExistingInstance(IActiveArea area) {
-		super.transferIntoExistingInstance(area);
-		LAST_VISITED_AREA.put(getPlayerProfile(), area.getType());
-		LAST_FLAIR.put(getPlayerProfile(), area.getFlair());
+	protected QuestFlair getFlairFor(IAreaType type) {
+		return QuestFlair.DAYTIME;
 	}
 
 	@Override
-	protected void respawnWithoutInstance() {
-		MHFCExplorationRegistry.releasePlayer(getPlayerProfile());
+	protected void respawnWithoutInstance(EntityPlayerMP player) {
+		MHFCExplorationRegistry.releasePlayer(player);
 	}
 
 	@Override
-	protected void respawnInInstance(IActiveArea instance) {
-		transferIntoExistingInstance(instance);
+	protected void respawnInInstance(EntityPlayerMP player, IActiveArea instance) {
+		AreaTeleportation.movePlayerToArea(player, instance.getArea());
 	}
 
 	@Override
-	public void onPlayerJoined() throws IllegalArgumentException {
-		super.onPlayerJoined();
-		respawn(null);
+	protected IAreaType initialAreaType(EntityPlayerMP player) {
+		IAreaType previous = lastVisitedInstance.get(player);
+		previous = previous != null ? previous : MHFCExplorationRegistry.getExplorationProperties(player).getAreaType();
+		return previous != null ? previous : VillagePokeType.INSTANCE;
 	}
 
 	@Override
-	public JsonElement saveState() {
-		return null;
+	public void initialAddPlayer(EntityPlayerMP player) throws IllegalArgumentException {
+		super.initialAddPlayer(player);
+		respawn(player);
 	}
-
-	@Override
-	protected void loadFromSaveData(JsonElement saveData) {}
 
 }

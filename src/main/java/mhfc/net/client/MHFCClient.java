@@ -2,10 +2,11 @@ package mhfc.net.client;
 
 import mhfc.net.ProxyBase;
 import mhfc.net.client.core.MHFCClientRegistry;
-import mhfc.net.client.particle.EnumParticleType;
-import mhfc.net.client.particle.paint.ParticleEmitter;
-import mhfc.net.client.particle.paint.ParticlePaintEmitter;
 import mhfc.net.common.core.MHFCCommonRegistry;
+import mhfc.net.common.entity.particle.EntityPaintFX;
+import mhfc.net.common.entity.particle.EntityPaintParticleEmitter;
+import mhfc.net.common.entity.particle.EnumParticleType;
+import mhfc.net.common.entity.type.EntityParticleEmitter;
 import net.minecraft.client.Minecraft;
 
 public class MHFCClient extends ProxyBase {
@@ -15,13 +16,11 @@ public class MHFCClient extends ProxyBase {
 		MHFCClientRegistry.staticInit();
 	}
 
-
-
 	/**
 	 * Spawns a particle from its respective emitter.
 	 */
 	@Override
-	public void spawnPaintBallParticle(EnumParticleType type, ParticleEmitter emitter) {
+	public void spawnParticle(EnumParticleType type, EntityParticleEmitter emitter) {
 		switch (type) {
 		case PAINT:
 			spawnPaintParticle(emitter);
@@ -31,14 +30,18 @@ public class MHFCClient extends ProxyBase {
 		}
 	}
 
-	private static void spawnPaintParticle(ParticleEmitter emitter) {
-		if (emitter == null || !(emitter instanceof ParticlePaintEmitter)) {
+	protected void spawnPaintParticle(EntityParticleEmitter emitter) {
+		if (!(emitter instanceof EntityPaintParticleEmitter) || emitter == null) {
 			return;
 		}
-		// TODO 1.12: see if there's a forge way to register particles with the effect renderer
-		// Minecraft.getMinecraft().effectRenderer.registerParticle(id, particleFactory);
-		ParticlePaintEmitter paintEmitter = (ParticlePaintEmitter) emitter;
+		EntityPaintParticleEmitter paintEmitter = (EntityPaintParticleEmitter) emitter;
+		EntityPaintFX particle = new EntityPaintFX(
+				paintEmitter.worldObj,
+				paintEmitter.color,
+				paintEmitter.posX,
+				paintEmitter.posY,
+				paintEmitter.posZ);
 
-		Minecraft.getMinecraft().effectRenderer.addEffect(paintEmitter.createPaintParticle());
+		Minecraft.getMinecraft().effectRenderer.addEffect(particle);
 	}
 }

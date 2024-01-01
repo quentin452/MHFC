@@ -9,7 +9,7 @@ public class CompositeException extends IllegalArgumentException {
 	 *
 	 */
 	private static final long serialVersionUID = 3901532003007263456L;
-	private List<Throwable> exceptions = new ArrayList<>();
+	private List<Throwable> exceptions = new ArrayList<Throwable>();
 
 	public CompositeException(Collection<Throwable> exceptions) {
 		super("Multiple exceptions");

@@ -1,122 +1,83 @@
 package mhfc.net.common.quests;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import java.util.Optional;
+import java.util.function.Consumer;
 
-import com.google.common.collect.HashBasedTable;
-import com.google.common.collect.Table;
-import com.google.gson.JsonElement;
-import com.mojang.authlib.GameProfile;
-
-import mhfc.net.common.core.registry.MHFCExplorationRegistry;
+import mhfc.net.MHFCMain;
 import mhfc.net.common.quests.world.QuestFlair;
-import mhfc.net.common.util.BiMultiMap;
-import mhfc.net.common.util.HashBiMultiMap;
+import mhfc.net.common.world.AreaTeleportation;
 import mhfc.net.common.world.area.IActiveArea;
 import mhfc.net.common.world.area.IAreaType;
 import mhfc.net.common.world.exploration.ExplorationAdapter;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 public class QuestExplorationManager extends ExplorationAdapter {
 
-	public static void bindPlayersToMission(Collection<GameProfile> players, Mission mission) {
-		IActiveArea questArea = mission.getQuestingArea();
-		IAreaType questType = questArea.getType();
-		QuestFlair questFlair = questArea.getFlair();
+	QuestFlair flair;
+	IActiveArea initialInstance;
+	Mission quest;
 
-		Table<IAreaType, QuestFlair, Collection<IActiveArea>> sharedAreaInstances = HashBasedTable.create();
-		sharedAreaInstances.put(questType, questFlair, new ArrayList<>(Collections.singleton(questArea)));
-		questArea.engage(); // Engage "by hand" as it is pre-injected
+	public QuestExplorationManager(QuestFlair flair, IActiveArea initialInstance, Mission quest) {
+		this.flair = Objects.requireNonNull(flair);
+		this.initialInstance = Objects.requireNonNull(initialInstance);
+		this.quest = quest;
+	}
 
-		BiMultiMap<IActiveArea, GameProfile> sharedInhabitants = new HashBiMultiMap<>();
-		sharedInhabitants.putAll(questArea, players);
+	@Override
+	protected QuestFlair getFlairFor(IAreaType type) {
+		return flair;
+	}
 
-		for (GameProfile player : players) {
-			QuestExplorationManager manager = new QuestExplorationManager(
-					player,
-					questArea,
-					mission,
-					sharedAreaInstances,
-					sharedInhabitants);
-			MHFCExplorationRegistry.bindPlayer(manager, player);
+	@Override
+	protected void transferIntoInstance(EntityPlayerMP player, IAreaType type, Consumer<IActiveArea> callback) {
+		Optional<IActiveArea> activeAreaOption = getAreasOfType(type).stream().findFirst();
+		if (activeAreaOption.isPresent()) {
+			MHFCMain.logger().debug("Transfering player into existing quest area instance");
+			IActiveArea area = activeAreaOption.get();
+			transferIntoInstance(player, area);
+			callback.accept(area);
+		} else {
+			MHFCMain.logger().debug("Transfering player into new quest area instance");
+			transferIntoNewInstance(player, type, callback);
 		}
 	}
 
-	private Mission quest;
-	private final Table<IAreaType, QuestFlair, Collection<IActiveArea>> areaInstances;
-	private final BiMultiMap<IActiveArea, GameProfile> inhabitants;
-
-	private QuestExplorationManager(
-			GameProfile player,
-			IActiveArea initialInstance,
-			Mission quest,
-			Table<IAreaType, QuestFlair, Collection<IActiveArea>> areaInstances,
-			BiMultiMap<IActiveArea, GameProfile> sharedInhabitants) {
-		super(player);
-		Objects.requireNonNull(initialInstance);
-		this.quest = Objects.requireNonNull(quest);
-		this.areaInstances = areaInstances;
-		this.inhabitants = sharedInhabitants;
-	}
-
 	@Override
-	protected BiMultiMap<IActiveArea, GameProfile> getInhabitants() {
-		return inhabitants;
-	}
-
-	@Override
-	protected Table<IAreaType, QuestFlair, Collection<IActiveArea>> getManagedInstances() {
-		return areaInstances;
-	}
-
-	@Override
-	protected void respawnWithoutInstance() throws UnsupportedOperationException {
+	protected void respawnWithoutInstance(EntityPlayerMP player) throws UnsupportedOperationException {
 		throw new UnsupportedOperationException(
 				"Quest had to respawn a player without an available instance. This is a bug and should never be called");
 	}
 
 	@Override
-	protected void respawnInInstance(IActiveArea instance) {
-		transferIntoExistingInstance(instance);
+	protected void respawnInInstance(EntityPlayerMP player, IActiveArea instance) {
+		AreaTeleportation.movePlayerToArea(player, instance.getArea());
 	}
 
 	@Override
-	public void respawn(JsonElement saveData) {
-		if (!quest.getPlayers().contains(playerprofile)) {
+	public void respawn(EntityPlayerMP player) throws IllegalArgumentException {
+		if (!quest.getPlayers().contains(player))
 			throw new IllegalArgumentException("Only players on the quest can be managed by this manager");
-		}
-		super.respawn(saveData);
+		respawnInInstance(player, initialInstance);
+		quest.updatePlayerEntity(player);
 	}
 
 	@Override
-	public void onPlayerRemove() {
-		super.onPlayerRemove();
-		quest.quitPlayer(getPlayer());
+	protected IAreaType initialAreaType(EntityPlayerMP player) {
+		throw new UnsupportedOperationException(
+				"Quest had to respawn a player without an available instance. This is a bug and should never be called");
 	}
 
 	@Override
-	public void onPlayerJoined() {
+	public void onPlayerRemove(EntityPlayerMP player) {
+		super.onPlayerRemove(player);
+		quest.quitPlayer(player);
+	}
+
+	@Override
+	public void initialAddPlayer(EntityPlayerMP player) throws IllegalArgumentException {
 		throw new UnsupportedOperationException(
 				"Quest manager can not be saved and not be the first to handle a spawn. This is a bug and should never be called");
 	}
-
-	@Override
-	public CompletionStage<IActiveArea> transferPlayerInto(IAreaType type, QuestFlair flair) {
-		CompletableFuture<IActiveArea> result = new CompletableFuture<>();
-		result.completeExceptionally(
-				new UnsupportedOperationException("Quest manager can not transfer players into other areas"));
-		return result;
-	}
-
-	@Override
-	public JsonElement saveState() {
-		return null;
-	}
-
-	@Override
-	protected void loadFromSaveData(JsonElement saveData) {}
 
 }

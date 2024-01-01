@@ -2,19 +2,16 @@ package mhfc.net.common.entity.projectile;
 
 import java.util.List;
 
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.projectile.EntityThrowable;
-import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.DamageSource;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
 
 public class EntityRathalosFireball extends EntityThrowable {
 
@@ -42,38 +39,31 @@ public class EntityRathalosFireball extends EntityThrowable {
 		shootingEntity = par2EntityLivingBase;
 	}
 
-	@Override
-	protected void onImpact(RayTraceResult result) {
-		
-		if(!this.world.isRemote) {
-		List<Entity> list = this.world
-				.getEntitiesWithinAABBExcludingEntity(this, this.getEntityBoundingBox().expand(4.5D, 3.0D, 4.5D));
+	protected void onImpact(MovingObjectPosition var1) {
+		@SuppressWarnings("rawtypes")
+		List list = this.worldObj.getEntitiesWithinAABBExcludingEntity(this, this.boundingBox.expand(4.5D, 3.0D, 4.5D));
 		list.remove(getThrower());
-		for (Entity entity : list) {
-			if (entity instanceof EntityPlayer) {
-				entity.attackEntityFrom(DamageSource.causeMobDamage(getThrower()), 4 + this.rand.nextInt(14));
-			} else {
-				entity.attackEntityFrom(DamageSource.causeMobDamage(getThrower()), 29 + this.rand.nextInt(121));
-			}
-			if (world.isRemote || result.entityHit == null) {
-				continue;
-			}
-			boolean flag1 = true;
-			if(this.shootingEntity != null && this.shootingEntity instanceof EntityLiving) {
-				flag1 = this.world.getGameRules().getBoolean("mobGriefing");
-			}
-			if(flag1) {
-				BlockPos blockpos = result.getBlockPos().offset(result.sideHit);
-
-                if (this.world.isAirBlock(blockpos))
-                {
-                    this.world.setBlockState(blockpos, Blocks.FIRE.getDefaultState());
-                }
+		for (int i = 0; i < list.size(); i++) {
+			Entity entity = (Entity) list.get(i);
+			if (!worldObj.isRemote) {
+				if (var1.entityHit != null) {
+					this.worldObj.newExplosion(
+							(Entity) null,
+							this.posX,
+							this.posY,
+							this.posZ,
+							(float) this.radius,
+							true,
+							this.worldObj.getGameRules().getGameRuleBooleanValue("mobGriefing"));
+					if (entity instanceof EntityPlayer) {
+						entity.attackEntityFrom(DamageSource.causeMobDamage(getThrower()), 4 + this.rand.nextInt(14));
+					} else {
+						entity.attackEntityFrom(DamageSource.causeMobDamage(getThrower()), 29 + this.rand.nextInt(121));
+					}
+				}
 			}
 
-			}
 		}
-
 	}
 
 	@Override
@@ -81,12 +71,10 @@ public class EntityRathalosFireball extends EntityThrowable {
 		return 0;
 	}
 
-	@Override
 	public void writeEntityToNBT(NBTTagCompound tagcompound) {
 		super.writeEntityToNBT(tagcompound);
 	}
 
-	@Override
 	public void readEntityFromNBT(NBTTagCompound tagcompound) {
 		super.readEntityFromNBT(tagcompound);
 	}

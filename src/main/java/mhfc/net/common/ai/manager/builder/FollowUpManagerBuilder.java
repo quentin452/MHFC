@@ -116,10 +116,9 @@ public class FollowUpManagerBuilder<EntType extends EntityLiving & IManagedActio
 		graph.addEdge(attack, following, chooser);
 	}
 
-	@Override
 	public AIFollowUpActionManager<EntType> build(EntType entity) {
 		DataObject<EntType> dataObject = new DataObject<>(graph);
-		return new AIFollowUpActionManager<>(entity, dataObject);
+		return new AIFollowUpActionManager<EntType>(entity, dataObject);
 	}
 
 }

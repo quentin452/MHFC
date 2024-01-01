@@ -2,11 +2,8 @@ package mhfc.net.common.util.stringview;
 
 import java.util.Objects;
 
-import net.minecraft.client.resources.I18n;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraft.util.StatCollector;
 
-@SideOnly(Side.CLIENT)
 public class LocalizedString implements Viewable {
 	private String toLocalize;
 
@@ -16,7 +13,7 @@ public class LocalizedString implements Viewable {
 
 	@Override
 	public void appendTo(StringBuilder builder) {
-		builder.append(I18n.format(toLocalize));
+		builder.append(StatCollector.translateToLocal(toLocalize));
 	}
 
 	@Override

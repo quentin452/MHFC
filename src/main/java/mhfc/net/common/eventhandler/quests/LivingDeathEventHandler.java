@@ -1,9 +1,11 @@
 package mhfc.net.common.eventhandler.quests;
 
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
-public class LivingDeathEventHandler extends QuestGoalEventHandler<LivingDeathEvent> {
+public class LivingDeathEventHandler
+	extends
+		QuestGoalEventHandler<LivingDeathEvent> {
 
 	public LivingDeathEventHandler(NotifyableQuestGoal<LivingDeathEvent> g) {
 		super(g, LivingDeathEvent.class);
@@ -11,9 +13,8 @@ public class LivingDeathEventHandler extends QuestGoalEventHandler<LivingDeathEv
 
 	@SubscribeEvent
 	public void onEventCaught(LivingDeathEvent event) {
-		if (stillActive) {
+		if (stillActive)
 			questGoal.notifyOfEvent(event);
-		}
 	}
 
 }

@@ -1,8 +1,9 @@
 package mhfc.net.common.quests.descriptions;
 
 import mhfc.net.MHFCMain;
+import mhfc.net.common.core.registry.MHFCQuestBuildRegistry;
+import mhfc.net.common.quests.api.GoalDefinition;
 import mhfc.net.common.quests.api.GoalReference;
-import mhfc.net.common.quests.api.IGoalDefinition;
 import mhfc.net.common.quests.api.IGoalFactory;
 import mhfc.net.common.quests.api.QuestGoal;
 import mhfc.net.common.quests.goals.ChainQuestGoal;
@@ -15,7 +16,7 @@ import mhfc.net.common.util.stringview.Viewable;
  * [{@value ChainGoalDescription#ID_SUCCESSOR} : {@linkplain String}| {@linkplain GoalDefinition}]
  */
 
-public class ChainGoalDescription implements IGoalDefinition {
+public class ChainGoalDescription extends GoalDefinition {
 
 	public static final String ID_GOAL = "goal";
 	public static final String ID_SUCCESSOR = "successor";
@@ -23,6 +24,7 @@ public class ChainGoalDescription implements IGoalDefinition {
 	private GoalReference trueGoal, successorGoal;
 
 	public ChainGoalDescription(GoalReference trueGoal, GoalReference successorGoal) {
+		super(MHFCQuestBuildRegistry.GOAL_CHAIN_TYPE);
 		this.trueGoal = trueGoal;
 		this.successorGoal = successorGoal;
 	}

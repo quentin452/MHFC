@@ -2,15 +2,14 @@ package mhfc.net.common.weapon.melee.huntinghorn;
 
 import java.util.function.Consumer;
 
-import mhfc.net.common.index.ResourceInterface;
+import mhfc.net.common.core.registry.MHFCPotionRegistry;
+import mhfc.net.common.util.lib.MHFCReference;
 import mhfc.net.common.weapon.melee.ItemWeaponMelee;
 import mhfc.net.common.weapon.melee.huntinghorn.HuntingHornWeaponStats.HuntingHornWeaponStatsBuilder;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.EnumActionResult;
-import net.minecraft.util.EnumHand;
+import net.minecraft.potion.PotionEffect;
 import net.minecraft.world.World;
 
 public class ItemHuntingHorn extends ItemWeaponMelee<HuntingHornWeaponStats> {
@@ -26,24 +25,18 @@ public class ItemHuntingHorn extends ItemWeaponMelee<HuntingHornWeaponStats> {
 
 	@Override
 	public String getWeaponClassUnlocalized() {
-		return ResourceInterface.weapon_huntinghorn_name;
+		return MHFCReference.weapon_huntinghorn_name;
 	}
 
 	@Override
-	protected double getMovementSpeedMultiplier(ItemStack stack) {
-		return -0.1;
-	}
-
-	@Override
-	public ActionResult<ItemStack> onItemRightClick(World world, EntityPlayer player, EnumHand hand) {
-		ActionResult<ItemStack> newstack = super.onItemRightClick(world, player, hand);
-		ItemStack stack = player.getHeldItem(hand);
+	public ItemStack onItemRightClick(ItemStack stack, World world, EntityPlayer player) {
+		ItemStack newstack = super.onItemRightClick(stack, world, player);
 		stats.toggleNote(stack);
-		return ActionResult.newResult(EnumActionResult.SUCCESS, newstack.getResult());
+		return newstack;
 	}
 
 	@Override
-	public void onUsingTick(ItemStack stack, EntityLivingBase player, int useCounter) {
+	public void onUsingTick(ItemStack stack, EntityPlayer player, int useCounter) {
 		super.onUsingTick(stack, player, useCounter);
 	}
 
@@ -67,7 +60,7 @@ public class ItemHuntingHorn extends ItemWeaponMelee<HuntingHornWeaponStats> {
 		if (!isOffCooldown(stack)) {
 			return superResult;
 		}
-		//	target.addPotionEffect(new PotionEffect(MHFCPotionRegistry.getRegistry().stun, 10, 5));
+		target.addPotionEffect(new PotionEffect(MHFCPotionRegistry.stun.id, 10, 5));
 		triggerCooldown(stack);
 		return true;
 	}

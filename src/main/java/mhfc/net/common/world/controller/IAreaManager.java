@@ -19,6 +19,4 @@ public interface IAreaManager {
 	 * @throws Exception
 	 */
 	CompletionStage<IActiveArea> getUnusedInstance(IAreaType type);
-
-	void onLoaded();
 }

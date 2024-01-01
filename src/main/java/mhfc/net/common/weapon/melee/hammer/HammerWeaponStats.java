@@ -4,8 +4,7 @@ import mhfc.net.common.weapon.melee.MeleeWeaponStats;
 
 public class HammerWeaponStats extends MeleeWeaponStats {
 	public static class HammerWeaponStatsBuilder extends MeleeWeaponStatsBuilder<HammerWeaponStatsBuilder> {
-		public HammerWeaponStatsBuilder() {
-		}
+		public HammerWeaponStatsBuilder() {}
 
 		@Override
 		protected HammerWeaponStatsBuilder getThis() {

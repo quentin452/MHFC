@@ -10,7 +10,8 @@ import mhfc.net.common.weapon.melee.hammer.ItemHammer;
 import mhfc.net.common.weapon.melee.huntinghorn.ItemHuntingHorn;
 import mhfc.net.common.weapon.melee.longsword.ItemLongsword;
 import mhfc.net.common.weapon.range.bow.ItemBow;
-import net.minecraft.inventory.EntityEquipmentSlot;
+import mhfc.net.common.weapon.range.bowgun.heavy.ItemHeavyBowgun;
+import mhfc.net.common.weapon.range.bowgun.light.ItemLightBowgun;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemArmor;
 import net.minecraft.item.ItemStack;
@@ -19,7 +20,7 @@ public enum ItemType {
 	ARMOR_HEAD(GeneralType.ARMOR) {
 		@Override
 		public boolean isTypeOf(Item item) {
-			return (item instanceof ItemArmor) && ((ItemArmor) item).armorType == EntityEquipmentSlot.HEAD;
+			return (item instanceof ItemArmor) && ((ItemArmor) item).armorType == 0;
 		}
 
 		@Override
@@ -30,7 +31,7 @@ public enum ItemType {
 	ARMOR_BODY(GeneralType.ARMOR) {
 		@Override
 		public boolean isTypeOf(Item item) {
-			return (item instanceof ItemArmor) && ((ItemArmor) item).armorType == EntityEquipmentSlot.CHEST;
+			return (item instanceof ItemArmor) && ((ItemArmor) item).armorType == 1;
 		}
 
 		@Override
@@ -41,7 +42,7 @@ public enum ItemType {
 	ARMOR_PANTS(GeneralType.ARMOR) {
 		@Override
 		public boolean isTypeOf(Item item) {
-			return (item instanceof ItemArmor) && ((ItemArmor) item).armorType == EntityEquipmentSlot.LEGS;
+			return (item instanceof ItemArmor) && ((ItemArmor) item).armorType == 2;
 		}
 
 		@Override
@@ -52,7 +53,7 @@ public enum ItemType {
 	ARMOR_BOOTS(GeneralType.ARMOR) {
 		@Override
 		public boolean isTypeOf(Item item) {
-			return (item instanceof ItemArmor) && ((ItemArmor) item).armorType == EntityEquipmentSlot.FEET;
+			return (item instanceof ItemArmor) && ((ItemArmor) item).armorType == 3;
 		}
 
 		@Override
@@ -104,24 +105,13 @@ public enum ItemType {
 			return "type.weapon_hunting_horn.name";
 		}
 	},
-	WEAPON_BOW(GeneralType.WEAPON) {
-		@Override
-		public boolean isTypeOf(Item item) {
-			return (item instanceof ItemBow);
-		}
-
-		@Override
-		public String getNameString() {
-			return "type.weapon_bow.name";
-		}
-	},
-	/*WEAPON_SWORD_AND_SHIELD(GeneralType.WEAPON) {
+	WEAPON_SWORD_AND_SHIELD(GeneralType.WEAPON) {
 		@Override
 		public boolean isTypeOf(Item item) {
 			// TODO Auto-generated method stub
 			return false;
 		}
-	
+
 		@Override
 		public String getNameString() {
 			return "type.weapon_sword_shield.name";
@@ -133,7 +123,7 @@ public enum ItemType {
 			// TODO Auto-generated method stub
 			return false;
 		}
-	
+
 		@Override
 		public String getNameString() {
 			return "type.weapon_double_sword.name";
@@ -145,7 +135,7 @@ public enum ItemType {
 			// TODO Auto-generated method stub
 			return false;
 		}
-	
+
 		@Override
 		public String getNameString() {
 			return "type.weapon_lance.name";
@@ -157,19 +147,29 @@ public enum ItemType {
 			// TODO Auto-generated method stub
 			return false;
 		}
-	
+
 		@Override
 		public String getNameString() {
 			return "type.weapon_gunlance.name";
 		}
 	},
-	
+	WEAPON_BOW(GeneralType.WEAPON) {
+		@Override
+		public boolean isTypeOf(Item item) {
+			return (item instanceof ItemBow);
+		}
+
+		@Override
+		public String getNameString() {
+			return "type.weapon_bow.name";
+		}
+	},
 	WEAPON_SMALL_BOWGUN(GeneralType.WEAPON) {
 		@Override
 		public boolean isTypeOf(Item item) {
 			return (item instanceof ItemLightBowgun);
 		}
-	
+
 		@Override
 		public String getNameString() {
 			return "type.weapon_small_bowgun.name";
@@ -180,12 +180,12 @@ public enum ItemType {
 		public boolean isTypeOf(Item item) {
 			return (item instanceof ItemHeavyBowgun);
 		}
-	
+
 		@Override
 		public String getNameString() {
 			return "type.weapon_big_bowgun.name";
 		}
-	},*/
+	},
 	NO_OTHER(GeneralType.NONE) {
 		@Override
 		public boolean isTypeOf(Item item) {
@@ -220,7 +220,6 @@ public enum ItemType {
 				break;
 			case WEAPON:
 				weapons.add(type);
-			case NONE:
 			default:
 				break;
 			}
@@ -263,7 +262,7 @@ public enum ItemType {
 	 */
 	public int getWeaponOrdinal() {
 		if (generalType == GeneralType.WEAPON) {
-			//return ordinal() - WEAPON_BIG_BOWGUN.ordinal();
+			return ordinal() - WEAPON_BIG_BOWGUN.ordinal();
 		}
 		return -1;
 	}

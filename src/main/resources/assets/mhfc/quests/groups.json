@@ -1,21 +1,13 @@
 {
-	"groupDisplayOrder": [
-		"Low Tier Hunter Quest", "Hunter's Introduction"
+	"groupDisplayOrder":[
+		"Low Rank Hunting Quest"
 	],
-	"groups": {
-		"Hunter's Introduction": [
-			"leadingthecharge",
-			"testquest1",
-			"nogutsnoglory"
+	"groups":{
+		"Low Rank Hunting Quest":[
+			"Nargacuga", "Deviljho", "DualGreatJaggi", "Barroth", "Lagiacrus", "Tigrex"
 		],
-		"Low Tier Hunter Quest": [
-			"tigrexroar",
-			"jumpingatshadows",
-			"violentwyvern",
-			"desertrathalos",
-			"phantomofthemist",
-			"dangerousabyss"
-			
+		"Beginner Tutorial":[
+			"TestQuest"
 		]
 	}
 }

@@ -9,15 +9,14 @@ import mhfc.net.common.core.registry.MHFCDimensionRegistry;
 import mhfc.net.common.core.registry.MHFCEntityRegistry;
 import mhfc.net.common.core.registry.MHFCEventRegistry;
 import mhfc.net.common.core.registry.MHFCExplorationRegistry;
+import mhfc.net.common.core.registry.MHFCHunterCraftingRegistry;
 import mhfc.net.common.core.registry.MHFCItemRegistry;
-import mhfc.net.common.core.registry.MHFCLootTableRegistry;
 import mhfc.net.common.core.registry.MHFCPacketRegistry;
 import mhfc.net.common.core.registry.MHFCPlayerPropertiesRegistry;
 import mhfc.net.common.core.registry.MHFCPotionRegistry;
 import mhfc.net.common.core.registry.MHFCQuestBuildRegistry;
 import mhfc.net.common.core.registry.MHFCQuestRegistry;
 import mhfc.net.common.core.registry.MHFCSmeltingRegistry;
-import mhfc.net.common.core.registry.MHFCSoundRegistry;
 import mhfc.net.common.core.registry.MHFCTileRegistry;
 import mhfc.net.common.world.area.AreaRegistry;
 
@@ -25,28 +24,24 @@ public class MHFCCommonRegistry {
 	private final static Logger logger = MHFCMain.logger();
 
 	public static void init() {
-		addEvent();
-		addPlayerProperties();
-		addRecipes();
-		addDimension();
-		addSmelting();
-		addTile();
-		addPacket();
-		addAreas();
-		addQuests();
+		MHFCCommonRegistry.addEvent();
+		MHFCCommonRegistry.addPlayerProperties();
+		MHFCCommonRegistry.addRecipes();
+		MHFCCommonRegistry.addDimension();
+		MHFCCommonRegistry.addSmelting();
+		MHFCCommonRegistry.addTile();
+		MHFCCommonRegistry.addPacket();
+		MHFCCommonRegistry.addAreas();
+		MHFCCommonRegistry.addQuests();
 	}
 
 	public static void staticInit() {
-		MHFCPotionRegistry.staticInit();
-		MHFCEntityRegistry.staticInit();
+		MHFCCommonRegistry.addPotion();
+		MHFCCommonRegistry.addBlocks();
+		MHFCCommonRegistry.addMonsters();
+		MHFCCommonRegistry.addItems();
 		MHFCQuestRegistry.staticInit();
 		MHFCEventRegistry.staticInit();
-		MHFCSoundRegistry.staticInit();
-
-		// BLOCKS BEFORE ITEMS!!
-		MHFCBlockRegistry.staticInit();
-		MHFCItemRegistry.staticInit();
-		MHFCLootTableRegistry.staticInit();
 
 		MHFCMain.initPhase.registerEntryCallback(e -> init());
 	}
@@ -61,6 +56,10 @@ public class MHFCCommonRegistry {
 		MHFCMain.logger().info("Quest Server registered");
 	}
 
+	private static void addBlocks() {
+		MHFCBlockRegistry.staticInit();
+	}
+
 	private static void addSmelting() {
 		MHFCSmeltingRegistry.init();
 		MHFCCommonRegistry.logger.info("Smelting registered");
@@ -71,8 +70,13 @@ public class MHFCCommonRegistry {
 		MHFCCommonRegistry.logger.info("Packets registered");
 	}
 
+	private static void addItems() {
+		MHFCItemRegistry.staticInit();
+	}
+
 	private static void addRecipes() {
 		MHFCCraftingRegistry.init();
+		MHFCHunterCraftingRegistry.init();
 		MHFCCommonRegistry.logger.info("Recipes registered");
 	}
 
@@ -86,9 +90,17 @@ public class MHFCCommonRegistry {
 		MHFCCommonRegistry.logger.info("Tile Entities registered");
 	}
 
+	private static void addPotion() {
+		MHFCPotionRegistry.staticInit();
+	}
+
 	private static void addEvent() {
 		MHFCEventRegistry.init();
 		MHFCCommonRegistry.logger.info("Events registered");
+	}
+
+	private static void addMonsters() {
+		MHFCEntityRegistry.staticInit();
 	}
 
 	private static void addAreas() {

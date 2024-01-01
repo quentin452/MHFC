@@ -1,6 +1,7 @@
 package mhfc.net.common.ai.general;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Random;
 
 import mhfc.net.MHFCMain;
@@ -83,14 +84,14 @@ public class WeightedPick {
 		// Collect items in cache and sum
 		double sum = 0.0D;
 		int i = 0;
-		for (T item : list) {
+		for (Iterator<T> iterator = list.iterator(); iterator.hasNext();) {
+			T item = iterator.next();
 			if (item.forceSelection()) {
 				return item;
 			}
-			float w = Math.max(0.0f, item.getWeight());
-			if (WeightedItem.isDontSelect(w)) {
+			double w = Math.max(0.0d, item.getWeight());
+			if (w <= 0.0d)
 				continue;
-			}
 			sum += w;
 			items[i] = item;
 			weights[i] = w;
@@ -116,19 +117,14 @@ public class WeightedPick {
 		// Select item from cache
 		for (; count > 0;) {
 			sum += weights[--count];
-			if (sum < value) {
+			if (sum < value)
 				continue;
-			}
 			return count;
 		}
 		return -1;
 	}
 
 	public static interface WeightedItem {
-		public static boolean isDontSelect(float weight) {
-			return weight <= 0;
-		}
-
 		/**
 		 * Returns the (positive) weight of this item. The chance of this item being selected is
 		 * <code>(weight/sum)</code> where <code>sum</code> is the sum of all weights of all items to be picked out of.

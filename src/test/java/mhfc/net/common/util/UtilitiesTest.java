@@ -13,23 +13,21 @@ import net.minecraft.util.ResourceLocation;
 
 public class UtilitiesTest {
 
-	ResourceLocation location = new ResourceLocation("mhfc:sounds.json");
+	ResourceLocation location = new ResourceLocation("mhfc:lang/en_US.lang");
 	ResourceLocation location_wrong = new ResourceLocation("mhfc:not_there/en_US.lang");
 
 	@Test
 	public void test() throws IOException {
-		try (
-				InputStream stream = ResourceLocations.openEmbeddedResource(location);
-				BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {
-			assertTrue(reader.ready());
-		}
+		InputStream stream = Utilities.openEmbeddedResource(location);
+		BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+		String firstLine = reader.readLine();
+		assertTrue(firstLine.matches(".*?=.*"));
 	}
 
 	@Test(expected = IOException.class)
 	public void testWrongFile() throws IOException {
-		try (InputStream stream = ResourceLocations.openEmbeddedResource(location_wrong)) {
-			assertTrue(stream == null);
-		}
+		InputStream stream = Utilities.openEmbeddedResource(location_wrong);
+		assertTrue(stream == null);
 	}
 
 }

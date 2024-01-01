@@ -46,7 +46,8 @@ public class RegistryWrapper<T> {
 			IPhaseKey<A, Z> phase) {
 		IServiceAccess<RegistryWrapper<T>> serviceAccess = Services.instance.registerService(
 				name,
-				IServiceHandle.noInit(() -> new RegistryWrapper<>(newRegistry, softFinalizeHook)));
+				IServiceHandle.noInit(),
+				() -> new RegistryWrapper<>(newRegistry, softFinalizeHook));
 
 		serviceAccess.addTo(phase, new IServicePhaseHandle<RegistryWrapper<T>, A, Z>() {
 			@Override
@@ -56,11 +57,6 @@ public class RegistryWrapper<T> {
 
 			@Override
 			public void onPhaseEnd(RegistryWrapper<T> service, Z shutdownContext) {
-				service.unregister();
-			}
-
-			@Override
-			public void onPhaseEndExceptionally(RegistryWrapper<T> service, Throwable cause) {
 				service.unregister();
 			}
 		});

@@ -2,30 +2,31 @@ package mhfc.net.common.ai.general;
 
 import java.util.Objects;
 
-import mhfc.net.common.entity.CreatureAttributes;
+import mhfc.net.common.entity.type.EntityMHFCBase;
+import mhfc.net.common.util.world.WorldHelper;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Vec3;
 
 public class TargetTurnHelper {
 
-	private CreatureAttributes<?> entity;
-	private Vec3d targetPoint;
+	private EntityMHFCBase<?> entity;
+	private Vec3 targetPoint;
 	private float maxTurnSpeed;
 	private boolean isUpdating;
 
-	public TargetTurnHelper(CreatureAttributes<?> controlledEntity) {
+	public TargetTurnHelper(EntityMHFCBase<?> controlledEntity) {
 		this.entity = Objects.requireNonNull(controlledEntity);
 	}
 
 	/**
 	 * Sets the target point for turns to the position given by the vector
 	 */
-	public void updateTargetPoint(Vec3d vector) {
+	public void updateTargetPoint(Vec3 vector) {
 		if (vector == null) {
 			return;
 		}
 		isUpdating = true;
-		this.targetPoint = vector;
+		this.targetPoint = vector.addVector(0, 0, 0);
 	}
 
 	/**
@@ -33,7 +34,7 @@ public class TargetTurnHelper {
 	 */
 	public void updateTargetPoint(double x, double y, double z) {
 		isUpdating = true;
-		this.targetPoint = new Vec3d(x, y, z);
+		this.targetPoint = Vec3.createVectorHelper(x, y, z);
 	}
 
 	/**
@@ -44,7 +45,7 @@ public class TargetTurnHelper {
 			return;
 		}
 		isUpdating = true;
-		this.targetPoint = entity.getPositionVector();
+		this.targetPoint = Vec3.createVectorHelper(entity.posX, entity.posY, entity.posZ);
 	}
 
 	/**
@@ -67,7 +68,7 @@ public class TargetTurnHelper {
 	 * <b> Do not call this yourself. </b><br>
 	 * Performs the update and resets the update status to false. This means you have to set something (target point,
 	 * speed) or call {@link TargetTurnHelper#forceUpdate()} each entity update. This then gets called last from
-	 * EntityMHFCBase in {@link CreatureAttributes#updateAITick()}, so before the Minecraft default helpers are called.
+	 * EntityMHFCBase in {@link EntityMHFCBase#updateAITick()}, so before the Minecraft default helpers are called.
 	 */
 	public void onUpdateTurn() {
 		if (!isUpdating) {
@@ -77,11 +78,13 @@ public class TargetTurnHelper {
 		if (targetPoint == null) {
 			return;
 		}
-		Vec3d entityPos = entity.getPositionVector();
-		Vec3d vecToTarget = targetPoint.subtract(entityPos);
-		
-		entity.rotationYaw = AIUtils.modifyYaw(entity, vecToTarget.normalize(), maxTurnSpeed);
-		// FIXME Figure out a way to send the updates to the client cleanly
+		Vec3 entityPos = WorldHelper.getEntityPositionVector(entity);
+		Vec3 vecToTarget = entityPos.subtract(targetPoint);
+		float newYaw = AIUtils.modifyYaw(entity.getLookVec(), vecToTarget.normalize(), maxTurnSpeed);
+		if (!Float.isNaN(newYaw)) {
+			entity.rotationYaw = newYaw;
+		}
+		// CLEANUP Figure out a way to send the updates to the client cleanly
 		entity.addVelocity(10e-4, 0, 10e-4);
 	}
 

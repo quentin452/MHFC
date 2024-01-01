@@ -10,12 +10,12 @@ import com.sk89q.worldedit.WorldEditException;
 import com.sk89q.worldedit.function.operation.Operation;
 import com.sk89q.worldedit.function.operation.RunContext;
 
+import cpw.mods.fml.common.gameevent.TickEvent.Phase;
 import mhfc.net.common.eventhandler.DelayedJob;
 import mhfc.net.common.eventhandler.MHFCTickHandler;
 import mhfc.net.common.eventhandler.TickPhase;
 import mhfc.net.common.quests.api.QuestGoal;
 import mhfc.net.common.quests.properties.IntProperty;
-import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
 
 /**
  *
@@ -44,8 +44,12 @@ public class TimeQuestGoal extends QuestGoal implements DelayedJob {
 			isCancelled = true;
 		}
 
+        @Override
+        public void addStatusMessages(List<String> list) {
 
-		@Override
+        }
+
+        @Override
 		public Operation resume(RunContext run) throws WorldEditException {
 			if (isCancelled) {
 				return null;
@@ -66,12 +70,6 @@ public class TimeQuestGoal extends QuestGoal implements DelayedJob {
 		public int getRemaining() {
 			return tickTime.get();
 		}
-
-		@Override
-		public void addStatusMessages(List<String> messages) {
-			// TODO Auto-generated method stub
-			
-		}
 	}
 
 	protected boolean isFailed = false;
@@ -82,7 +80,7 @@ public class TimeQuestGoal extends QuestGoal implements DelayedJob {
 		super(null);
 		active = false;
 		this.timer = new Timer(timer, initialTime);
-		MHFCTickHandler.registerOperation(TickPhase.SERVER_POST, this.timer);
+		MHFCTickHandler.instance.registerOperation(TickPhase.SERVER_POST, this.timer);
 	}
 
 	@Override

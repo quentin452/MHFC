@@ -1,7 +1,6 @@
 package mhfc.net.common.core.registry;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -10,12 +9,18 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import com.google.common.base.Throwables;
-
+import cpw.mods.fml.common.FMLCommonHandler;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
+import cpw.mods.fml.common.gameevent.TickEvent.Phase;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import mhfc.net.MHFCMain;
 import mhfc.net.common.core.data.KeyToInstanceRegistryData;
 import mhfc.net.common.network.PacketPipeline;
-import mhfc.net.common.network.handler.ThreadSafeMessageHandler;
 import mhfc.net.common.network.message.quest.MessageMHFCInteraction;
 import mhfc.net.common.network.message.quest.MessageMissionStatus;
 import mhfc.net.common.network.message.quest.MessageMissionUpdate;
@@ -23,22 +28,11 @@ import mhfc.net.common.network.message.quest.MessageQuestRunningSubscription;
 import mhfc.net.common.network.message.quest.MessageRequestMissionUpdate;
 import mhfc.net.common.quests.Mission;
 import mhfc.net.common.quests.QuestFactories;
-import mhfc.net.common.quests.api.IQuestDefinition;
-import mhfc.net.common.util.DetachableResource;
+import mhfc.net.common.quests.api.QuestDefinition;
 import mhfc.net.common.util.services.IServiceKey;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedInEvent;
-import net.minecraftforge.fml.common.gameevent.PlayerEvent.PlayerLoggedOutEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import net.minecraft.util.ChatComponentText;
 
 public class MHFCQuestRegistry {
 	public static void staticInit() {}
@@ -50,13 +44,13 @@ public class MHFCQuestRegistry {
 			MHFCMain.serverRunningPhase);
 
 	public static class RegistryRequestVisualHandler
-	implements
-	IMessageHandler<MessageRequestMissionUpdate, MessageMissionUpdate> {
+			implements
+			IMessageHandler<MessageRequestMissionUpdate, MessageMissionUpdate> {
 
 		@Override
 		public MessageMissionUpdate onMessage(MessageRequestMissionUpdate message, MessageContext ctx) {
 			String identifier = message.getIdentifier();
-			Mission runningQuest = getRegistry().getMission(identifier);
+			Mission runningQuest = getRegistry().getRunningQuest(identifier);
 			if (runningQuest == null) {
 				return null;
 			}
@@ -65,15 +59,15 @@ public class MHFCQuestRegistry {
 	}
 
 	public static class RunningSubscriptionHandler
-			extends
-			ThreadSafeMessageHandler<MessageQuestRunningSubscription, IMessage> {
+			implements
+			IMessageHandler<MessageQuestRunningSubscription, IMessage> {
 		private static Set<EntityPlayerMP> subscribers = new HashSet<>();
 
 		public RunningSubscriptionHandler() {}
 
 		@Override
-		public void handleLater(MessageQuestRunningSubscription message, MessageContext ctx) {
-			EntityPlayerMP player = ctx.getServerHandler().player;
+		public IMessage onMessage(MessageQuestRunningSubscription message, MessageContext ctx) {
+			EntityPlayerMP player = ctx.getServerHandler().playerEntity;
 			if (message.isSubscribed()) {
 				boolean newSubscription = subscribers.add(player);
 				if (newSubscription) {
@@ -82,6 +76,7 @@ public class MHFCQuestRegistry {
 			} else {
 				subscribers.remove(player);
 			}
+			return null;
 		}
 
 		public static void sendAllTo(EntityPlayerMP player) {
@@ -107,7 +102,7 @@ public class MHFCQuestRegistry {
 			RunningSubscriptionHandler.subscribers.add(player);
 			for (Entry<String, Mission> mission : getRegistry().runningQuestRegistry.getFrozenDataMap().entrySet()) {
 				String missionID = mission.getKey();
-				ResourceLocation questID = getRegistry().missionIDtoQuestID.get(missionID);
+				String questID = getRegistry().missionIDtoQuestID.get(missionID);
 				PacketPipeline.networkPipe.sendTo(MessageMissionStatus.creation(questID, missionID), player);
 			}
 		}
@@ -115,7 +110,7 @@ public class MHFCQuestRegistry {
 		@SubscribeEvent
 		public void onPlayerLeave(PlayerLoggedOutEvent logOut) {
 			EntityPlayerMP player = EntityPlayerMP.class.cast(logOut.player);
-			Mission quest = getRegistry().getMissionForPlayer(player);
+			Mission quest = getRegistry().getQuestForPlayer(player);
 			if (quest == null) {
 				return;
 			}
@@ -158,83 +153,74 @@ public class MHFCQuestRegistry {
 				RunningSubscriptionHandler.sendToAll(genQ.createFullUpdateMessage());
 			}
 			break;
-		case INVALID:
 		default:
 			break;
 		}
 	}
 
 	private void forfeitQuest(EntityPlayerMP player) {
-		Mission quest = getMissionForPlayer(player);
+		Mission quest = getQuestForPlayer(player);
 		if (quest != null) {
 			quest.quitPlayer(player);
-			player.sendMessage(new TextComponentTranslation("mhfc.quests.status.forfeit"));
+			player.addChatMessage(new ChatComponentText("You have forfeited a quest"));
 		} else {
 			sendResetPlayerVisual(player);
 		}
 	}
 
 	private void voteEndQuest(EntityPlayerMP player) {
-		Mission quest = getMissionForPlayer(player);
+		Mission quest = getQuestForPlayer(player);
 		if (quest != null) {
 			quest.voteEnd(player);
-			player.sendMessage(new TextComponentTranslation("mhfc.quests.status.voteEnd"));
+			player.addChatMessage(new ChatComponentText("You have voted for ending the quest"));
 		} else {
 			sendResetPlayerVisual(player);
 		}
 	}
 
 	private void voteStartQuest(EntityPlayerMP player) {
-		Mission quest = getMissionForPlayer(player);
+		Mission quest = getQuestForPlayer(player);
 		if (quest != null) {
 			quest.voteStart(player);
-			player.sendMessage(new TextComponentTranslation("mhfc.quests.status.voteStart"));
+			player.addChatMessage(new ChatComponentText("You have voted for starting the quest"));
 		}
 	}
 
 	private void acceptQuest(EntityPlayerMP player, MessageMHFCInteraction message) {
-		Mission quest = getMission(message.getOptions()[0]);
+		Mission quest = getRunningQuest(message.getOptions()[0]);
 		if (quest != null) {
 			quest.joinPlayer(player);
-			player.sendMessage(new TextComponentTranslation("mhfc.quests.status.accepted"));
+			player.addChatMessage(new ChatComponentText("You have accepted a quest"));
 		} else {
-			player.sendMessage(new TextComponentTranslation("mhfc.quests.status.acceptFailed"));
+			player.addChatMessage(new ChatComponentText("The quest you wanted to accept does not exist"));
 		}
 	}
 
 	private void createNewQuest(EntityPlayerMP player, MessageMHFCInteraction message) {
-		Mission quest = getMissionForPlayer(player);
+		Mission quest = getQuestForPlayer(player);
 		if (quest != null) {
-			player.sendMessage(
-					new TextComponentTranslation("mhfc.quests.status.createFailed.hasQuest", getMissionID(quest)));
+			player.addChatMessage(new ChatComponentText("You already are on quest " + getIdentifierForQuest(quest)));
 			PacketPipeline.networkPipe.sendTo(quest.createFullUpdateMessage(), player);
 			return;
 		}
-		ResourceLocation questID = new ResourceLocation(message.getOptions()[0]);
-		IQuestDefinition questDescription = MHFCQuestBuildRegistry.getQuestDescription(questID);
+		String questID = message.getOptions()[0];
+		QuestDefinition questDescription = MHFCQuestBuildRegistry.getQuestDescription(questID);
 		if (questDescription == null) {
-			player.sendMessage(new TextComponentTranslation("mhfc.quests.status.createFailed.noSuchQuest", questID));
+			player.addChatMessage(new ChatComponentText("Quest with id[" + questID + "] not found"));
 			return;
 		}
-		String missionID = questID + "@" + player.getDisplayNameString() + "@" + questIDCounter++;
-		try (
-				DetachableResource<Mission> mission = new DetachableResource<>(
-						QuestFactories.constructQuest(questDescription, missionID))) {
-			if (mission.get() == null) {
-				player.sendMessage(new TextComponentTranslation("mhfc.quests.status.createFailed.internal", questID));
-				return;
-			}
-			if (!mission.get().canJoin(player)) {
-				return;
-			}
-			Mission newQuest = startMission(questID, mission, missionID);
-			if (newQuest != null) {
-				newQuest.joinPlayer(player);
-			}
-		} catch (Exception e) {
-			Throwables.propagateIfPossible(e);
-			throw new RuntimeException(e);
+		String missionID = questID + "@" + player.getDisplayName() + "@" + questIDCounter++;
+		Mission newQuest = QuestFactories.constructQuest(questDescription, missionID);
+		if (newQuest == null) {
+			player.addChatMessage(new ChatComponentText("Quest with id[" + questID + "] could not be constructed"));
+			return;
 		}
+		if (!newQuest.canJoin(player)) {
+			newQuest.close();
+			return;
+		}
+		startMission(questID, newQuest, missionID);
+		newQuest.joinPlayer(player);
 	}
 
 	private void sendResetPlayerVisual(EntityPlayerMP player) {
@@ -248,28 +234,27 @@ public class MHFCQuestRegistry {
 	protected Map<EntityPlayer, String> playerQuest = new HashMap<>();
 	protected List<Mission> questsRunning = new ArrayList<>();
 	protected KeyToInstanceRegistryData<String, Mission> runningQuestRegistry = new KeyToInstanceRegistryData<>();
-	protected Map<String, ResourceLocation> missionIDtoQuestID = new HashMap<>();
+	protected Map<String, String> missionIDtoQuestID = new HashMap<>();
 
 	private QuestEventHandler connectionHandler;
 
 	private MHFCQuestRegistry() {
-		MinecraftForge.EVENT_BUS.register(connectionHandler = new QuestEventHandler());
+		FMLCommonHandler.instance().bus().register(connectionHandler = new QuestEventHandler());
 	}
 
 	private void shutdown() {
-		MinecraftForge.EVENT_BUS.unregister(connectionHandler);
+		FMLCommonHandler.instance().bus().unregister(connectionHandler);
 	}
 
-	public Mission getMission(String string) {
+	public Mission getRunningQuest(String string) {
 		return runningQuestRegistry.getData(string);
 	}
 
 	/**
 	 * Get the quest on which a player is on. If the player is on no quest then null is returned.
 	 */
-	public Mission getMissionForPlayer(EntityPlayer player) {
-		String playerMissionID = getMissionIDForPlayer(player);
-		return getMission(playerMissionID);
+	public Mission getQuestForPlayer(EntityPlayer player) {
+		return runningQuestRegistry.getData(playerQuest.get(player));
 	}
 
 	/**
@@ -285,14 +270,14 @@ public class MHFCQuestRegistry {
 	/**
 	 * Returns all quests that are running at the moment.
 	 */
-	public List<Mission> getAllMissions() {
-		return Collections.unmodifiableList(questsRunning);
+	public List<Mission> getRunningQuests() {
+		return questsRunning;
 	}
 
 	/**
 	 * Returns the identifier for a quest
 	 */
-	public String getMissionID(Mission quest) {
+	public String getIdentifierForQuest(Mission quest) {
 		return runningQuestRegistry.getKey(quest);
 	}
 
@@ -300,7 +285,7 @@ public class MHFCQuestRegistry {
 	 * Sets the quest for a player, use null to remove the entry
 	 *
 	 */
-	public void setMissionForPlayer(EntityPlayer player, Mission generalQuest) {
+	public void setQuestForPlayer(EntityPlayer player, Mission generalQuest) {
 		if (generalQuest == null) {
 			playerQuest.remove(player);
 		} else {
@@ -311,16 +296,15 @@ public class MHFCQuestRegistry {
 	/**
 	 * Should be called when a new quest was started
 	 */
-	private Mission startMission(ResourceLocation questID, DetachableResource<Mission> mission, String missionID) {
-		if (!runningQuestRegistry.offerMapping(missionID, mission.get())) {
-			return null;
+	private boolean startMission(String questID, Mission mission, String missionID) {
+		if (!runningQuestRegistry.offerMapping(missionID, mission)) {
+			return false;
 		}
-		questsRunning.add(mission.get());
-		Mission newQuest = mission.detach();
+		questsRunning.add(mission);
 		missionIDtoQuestID.put(missionID, questID);
 		MessageMissionStatus message = MessageMissionStatus.creation(questID, missionID);
 		RunningSubscriptionHandler.sendToAll(message);
-		return newQuest;
+		return true;
 	}
 
 	/**
@@ -334,8 +318,8 @@ public class MHFCQuestRegistry {
 			missionIDtoQuestID.remove(missionID);
 			MessageMissionStatus message = MessageMissionStatus.destruction(missionID);
 			RunningSubscriptionHandler.sendToAll(message);
-			mission.close();
 		}
+		mission.close();
 		return wasRunning;
 	}
 

@@ -1,20 +1,19 @@
 package mhfc.net.common.block.container;
 
 import mhfc.net.MHFCMain;
-import mhfc.net.common.index.ResourceInterface;
 import mhfc.net.common.tile.TileBBQSpit;
+import mhfc.net.common.util.lib.MHFCReference;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.block.material.Material;
-import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.texture.IIconRegister;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumBlockRenderType;
 import net.minecraft.world.World;
 
 public class BlockBBQSpit extends BlockContainer {
 
 	public BlockBBQSpit() {
-		super(Material.IRON);
-		setUnlocalizedName(ResourceInterface.block_bbqspit_name);
+		super(Material.iron);
+		setBlockName(MHFCReference.block_bbqspit_name);
 		setCreativeTab(MHFCMain.mhfctabs);
 	}
 
@@ -24,14 +23,24 @@ public class BlockBBQSpit extends BlockContainer {
 	}
 
 	@Override
-	public boolean isOpaqueCube(IBlockState state) {
+	public int getRenderType() {
+		return -1;
+	}
+
+	@Override
+	public boolean isOpaqueCube() {
 		return false;
 	}
 
 	@Override
-	public EnumBlockRenderType getRenderType(IBlockState state) {
-		return EnumBlockRenderType.MODEL;
+	public boolean renderAsNormalBlock() {
+		return false;
 	}
 
+	@Override
+	public void registerBlockIcons(IIconRegister par1IconRegister) {
+		blockIcon = par1IconRegister
+				.registerIcon(MHFCReference.block_bbqspit_icon);
+	}
 
 }

@@ -1,10 +1,9 @@
 package mhfc.net.common.world.gen;
 
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldServer;
 import net.minecraft.world.WorldType;
-import net.minecraft.world.chunk.IChunkGenerator;
+import net.minecraft.world.biome.WorldChunkManager;
+import net.minecraft.world.chunk.IChunkProvider;
 
 public class WorldTypeQuesting extends WorldType {
 
@@ -13,23 +12,18 @@ public class WorldTypeQuesting extends WorldType {
 	}
 
 	@Override
-	public IChunkGenerator getChunkGenerator(World world, String generatorOptions) {
-		return new ChunkProviderVoid(world);
+	public IChunkProvider getChunkGenerator(World world, String generatorOptions) {
+		return new ChunkProviderQuesting(world);
 	}
 
 	@Override
-	public int getGeneratorVersion() {
+	public WorldChunkManager getChunkManager(World world) {
+		return new ChunkManagerQuesting(world);
+	}
+
+	@Override
+	public int getSpawnFuzz() {
 		return 1;
-	}
-
-	@Override
-	public int getSpawnFuzz(WorldServer world, MinecraftServer server) {
-		return 1;
-	}
-
-	@Override
-	public boolean canBeCreated() {
-		return false;
 	}
 
 }

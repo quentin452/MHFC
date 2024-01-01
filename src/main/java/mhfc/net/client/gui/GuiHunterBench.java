@@ -1,8 +1,7 @@
 package mhfc.net.client.gui;
 
-import static org.lwjgl.opengl.GL11.GL_QUADS;
+import static net.minecraftforge.client.IItemRenderer.ItemRenderType.ENTITY;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,65 +16,41 @@ import mhfc.net.client.gui.GuiListItem.Alignment;
 import mhfc.net.client.quests.MHFCRegQuestVisual;
 import mhfc.net.client.util.gui.MHFCGuiUtil;
 import mhfc.net.common.core.registry.MHFCEquipementRecipeRegistry;
-import mhfc.net.common.crafting.equipment.EquipmentRecipe;
-import mhfc.net.common.crafting.equipment.EquipmentRecipe.RecipeType;
-import mhfc.net.common.index.ResourceInterface;
+import mhfc.net.common.crafting.recipes.equipment.EquipmentRecipe;
+import mhfc.net.common.crafting.recipes.equipment.EquipmentRecipe.RecipeType;
 import mhfc.net.common.item.ItemType;
 import mhfc.net.common.item.ItemType.GeneralType;
 import mhfc.net.common.tile.TileHunterBench;
-import mhfc.net.common.util.Assert;
+import mhfc.net.common.util.lib.MHFCReference;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.model.ModelBiped;
-import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.VertexBuffer;
-import net.minecraft.client.renderer.block.model.ItemCameraTransforms.TransformType;
-import net.minecraft.client.renderer.entity.layers.LayerBipedArmor;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.client.resources.I18n;
+import net.minecraft.client.renderer.entity.RenderBiped;
 import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraft.inventory.EntityEquipmentSlot;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 import net.minecraftforge.client.ForgeHooksClient;
-import net.minecraftforge.fml.client.FMLClientHandler;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.client.IItemRenderer;
+import net.minecraftforge.client.IItemRenderer.ItemRenderType;
+import net.minecraftforge.client.MinecraftForgeClient;
 
-@SideOnly(Side.CLIENT)
 public class GuiHunterBench extends MHFCTabbedGui {
 	public static final ResourceLocation BURN_BACKGROUND = new ResourceLocation(
-			ResourceInterface.gui_hunterbench_burn_back_tex);
+			MHFCReference.gui_hunterbench_burn_back_tex);
 	public static final ResourceLocation BURN_FOREGROUND = new ResourceLocation(
-			ResourceInterface.gui_hunterbench_burn_front_tex);
+			MHFCReference.gui_hunterbench_burn_front_tex);
 	public static final ResourceLocation BURN_TARGET = new ResourceLocation(
-			ResourceInterface.gui_hunterbench_burn_target_tex);
-	public static final ResourceLocation BACKGROUND = new ResourceLocation(ResourceInterface.gui_hunterbench_back_tex);
+			MHFCReference.gui_hunterbench_burn_target_tex);
+	public static final ResourceLocation BACKGROUND = new ResourceLocation(
+			MHFCReference.gui_hunterbench_back_tex);
 	public static final ResourceLocation HUNTER_BENCH_COMPLETE = new ResourceLocation(
-			ResourceInterface.gui_hunterbench_complete_tex);
+			MHFCReference.gui_hunterbench_complete_tex);
 	public static final ResourceLocation FUEL_DURATION_MARKER = new ResourceLocation(
-			ResourceInterface.gui_hunterbench_fuel_tex);
-
-	private static class AdapterLayerBipedArmor extends LayerBipedArmor {
-		public AdapterLayerBipedArmor() {
-			super(null);
-		}
-
-		@Override
-		public void setModelSlotVisible(ModelBiped model, EntityEquipmentSlot slotIn) {
-			super.setModelSlotVisible(model, slotIn);
-		}
-
-		@Override
-		public void setModelVisible(ModelBiped model) {
-			super.setModelVisible(model);
-		}
-	}
-
-	private static AdapterLayerBipedArmor armorLayerProxy = new AdapterLayerBipedArmor();
+			MHFCReference.gui_hunterbench_fuel_tex);
 
 	static final int maxHeat = 500;
 	static final int modelRectRelX = 228;
@@ -95,10 +70,9 @@ public class GuiHunterBench extends MHFCTabbedGui {
 		}
 
 		@Override
-		@SideOnly(Side.CLIENT)
 		public String getRepresentationString() {
 			String str = type.getNameString();
-			return I18n.format(str);
+			return StatCollector.translateToLocal(str);
 		}
 
 	}
@@ -149,7 +123,7 @@ public class GuiHunterBench extends MHFCTabbedGui {
 			// updateListPositions();
 			super.draw(mousePosX, mousePosY, partialTick);
 
-			fontRenderer.drawSplitString("Inventory", 6, 12, 500, 0x404040);
+			fontRendererObj.drawSplitString("Inventory", 6, 12, 500, 0x404040);
 
 			GuiHunterBench.this.startCrafting.visible = !bench.isWorking();
 			GuiHunterBench.this.startCrafting.enabled = bench.canBeginCrafting();
@@ -157,7 +131,7 @@ public class GuiHunterBench extends MHFCTabbedGui {
 		};
 
 		@Override
-		public boolean handleClick(float relativeX, float relativeY, int button) throws IOException {
+		public boolean handleClick(float relativeX, float relativeY, int button) {
 			if (isInModelWindow(mouseClickX, mouseClickY) && mouseClickButton == 1) {
 				resetModelRot();
 			}
@@ -183,8 +157,10 @@ public class GuiHunterBench extends MHFCTabbedGui {
 
 		@Override
 		public boolean containsSlot(Slot slot) {
-			return slot.inventory == tileEntity
-					|| (slot.inventory instanceof InventoryPlayer && slot.getSlotIndex() < 36);
+			if (slot.inventory == tileEntity || (slot.inventory instanceof InventoryPlayer && slot.slotNumber > 51)) {
+				return true;
+			}
+			return false;
 		}
 
 		@Override
@@ -318,7 +294,7 @@ public class GuiHunterBench extends MHFCTabbedGui {
 
 	protected class CraftUpgradeTab extends FilteredRecipeTab {
 		public CraftUpgradeTab(TileHunterBench bench) {
-			super(bench, RecipeType.UPGRADE, ItemType.weaponTypes);
+			super(bench, RecipeType.UPGRADE, ItemType.allTypes);
 			typeList.setItemWidth(20);
 		}
 	}
@@ -334,7 +310,7 @@ public class GuiHunterBench extends MHFCTabbedGui {
 			GL11.glPushMatrix();
 			GL11.glDisable(GL11.GL_DEPTH_TEST);
 			drawRect(10, 10, xSize - 10, ySize - 10, 0xFF101010);
-			drawCenteredString(fontRenderer, "Not yet implemented", xSize / 2 + baseX, ySize / 2 + baseY, 0xaaaaaa);
+			drawCenteredString(fontRendererObj, "Not yet implemented", xSize / 2 + baseX, ySize / 2 + baseY, 0xaaaaaa);
 			GL11.glEnable(GL11.GL_DEPTH_TEST);
 			GL11.glPopMatrix();
 		}
@@ -433,24 +409,23 @@ public class GuiHunterBench extends MHFCTabbedGui {
 	 * Selects a tab based on the currently selected recipe
 	 */
 	protected void selectTab() {
-		int tab = 0;
+		int type = 2;
 		EquipmentRecipe recipe = tileEntity.getRecipe();
 		if (recipe != null) {
 			switch (recipe.getRecipeType()) {
 			case ARMOR:
-			case MHFC:
-			default:
-				tab = 0;
+				type = 0;
 				break;
 			case WEAPON:
-				tab = 1;
+				type = 1;
 				break;
 			case UPGRADE:
-				tab = 2;
-				tab = 0;
+				type = 2;
+			default:
+				type = 0;
 			}
 		}
-		setTab(tab);
+		setTab(type);
 	}
 
 	private void drawItemModelAndHeat(TileHunterBench bench, float modelRotX, float modelRotY) {
@@ -466,11 +441,11 @@ public class GuiHunterBench extends MHFCTabbedGui {
 		}
 	}
 
-	private static boolean isInModelWindow(double mouseClickX, double mouseClickY) {
-		return mouseClickX >= modelRectRelX //
-				&& mouseClickX <= (modelRectRelX + modelRectW) //
-				&& mouseClickY >= modelRectRelY //
-				&& mouseClickY <= (modelRectRelY + modelRectH);
+	private boolean isInModelWindow(double mouseClickX, double mouseClickY) {
+		return (mouseClickX >= modelRectRelX //
+				&& mouseClickX <= modelRectRelX + modelRectW)
+				&& (mouseClickY >= modelRectRelY //
+						&& mouseClickY <= modelRectRelY + modelRectH);
 	}
 
 	private void drawItemModel(
@@ -483,124 +458,81 @@ public class GuiHunterBench extends MHFCTabbedGui {
 			ItemType itemType,
 			float modelRotX,
 			float modelRotY) {
-		// TODO: maybe use and armor stand internally to render the items at
 		modelRotX /= 2;
 		modelRotY /= 4;
-
-		GlStateManager.pushMatrix();
+		GL11.glPushMatrix();
 		drawRect(rectX, rectY, rectX + rectW + 1, rectY + rectH, 0xFF000000);
-
 		GL11.glScissor(rectX * guiScale, mc.displayHeight - rectY * guiScale, rectW * guiScale, rectH * guiScale);
 		GL11.glEnable(GL11.GL_SCISSOR_TEST);
-		GlStateManager.clearDepth(1.0f);
+		GL11.glClearDepth(1.0f);
 		GL11.glDisable(GL11.GL_SCISSOR_TEST);
 
-		GlStateManager.enableTexture2D();
-		GlStateManager.enableDepth();
+		GL11.glEnable(GL11.GL_TEXTURE_2D);
+		GL11.glEnable(GL11.GL_DEPTH_TEST);
 		if (itemToRender != null) {
 			if (itemType.getGeneralType() == GeneralType.ARMOR) {
-				renderArmor(itemToRender, rectX, rectY, rectW, rectH, itemType, modelRotX, modelRotY);
+				GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+				GL11.glTranslatef(rectX + rectW / 2, rectY + rectH / 2, 40F);
+				switch (itemType) {
+				case ARMOR_HEAD:
+					GL11.glTranslatef(3f, 15f, 0F);
+					break;
+				case ARMOR_BODY:
+					GL11.glTranslatef(3f, -15f, 0F);
+					break;
+				case ARMOR_PANTS:
+					GL11.glTranslatef(3f, -35f, 0F);
+					break;
+				case ARMOR_BOOTS:
+					GL11.glTranslatef(3f, -55f, 0F);
+					break;
+				default:
+					break;
+				}
+				GL11.glRotatef(modelRotX, 0.0f, 1.0f, 0.0f);
+				GL11.glRotatef(-modelRotY, 1.0f, 0.0f, 0.0f);
+				float sc = rectH / 2;
+				GL11.glScalef(sc, sc, -sc);
+				int armorType = ((net.minecraft.item.ItemArmor) itemToRender.getItem()).armorType;
+				ResourceLocation loc = RenderBiped.getArmorResource(mc.thePlayer, itemToRender, armorType, null);
+				mc.getTextureManager().bindTexture(loc);
+				ModelBiped model = ForgeHooksClient.getArmorModel(mc.thePlayer, itemToRender, armorType, null);
+
+				if (model == null) {} else {
+					model.render(mc.thePlayer, 0, 0, 0, 0, 0, 0.06125f);
+					GL11.glFrontFace(GL11.GL_CW);
+					model.render(mc.thePlayer, 0, 0, 0, 0, 0, 0.06125f);
+					GL11.glFrontFace(GL11.GL_CCW);
+				}
 			} else if (itemType.getGeneralType() == GeneralType.WEAPON) {
-				renderWeapon(itemToRender, rectX, rectY, rectW, rectH, modelRotX, modelRotY);
-			} else {
-				// TODO: render else...
+				GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+				GL11.glTranslatef(rectX + rectW / 2, rectY + rectH / 2, 40F);
+				GL11.glTranslatef(3f, -15f, 0F);
+				GL11.glRotatef(90F, 1.0f, 0.0f, 0.0f);
+				modelRotY = Math.min(Math.abs(modelRotY), 30f) * Math.signum(modelRotY);
+				GL11.glRotatef(modelRotX, 0.0f, 0.0f, -1.0f);
+				GL11.glRotatef(modelRotY, 0.0f, -1.0f, 0.0f);
+				float sc = rectH / 8;
+				GL11.glScalef(sc, -sc, sc);
+
+				IItemRenderer customRenderer = MinecraftForgeClient.getItemRenderer(itemToRender, ENTITY);
+				if (customRenderer == null) {} else {
+					customRenderer.renderItem(
+							ItemRenderType.EQUIPPED,
+							itemToRender,
+							null,
+							Minecraft.getMinecraft().thePlayer);
+					GL11.glFrontFace(GL11.GL_CW);
+					customRenderer.renderItem(
+							ItemRenderType.EQUIPPED,
+							itemToRender,
+							null,
+							Minecraft.getMinecraft().thePlayer);
+					GL11.glFrontFace(GL11.GL_CCW);
+				}
 			}
 		}
-
-		GlStateManager.popMatrix();
-	}
-
-	private static void renderWeapon(
-			ItemStack itemToRender,
-			int rectX,
-			int rectY,
-			int rectW,
-			int rectH,
-			float modelRotX,
-			float modelRotY) {
-		GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
-		GlStateManager.translate(rectX + rectW / 2, rectY + rectH / 2, 40F);
-		GlStateManager.scale(3F, 3F, 3F);
-		GlStateManager.translate(3f, 5f, 0F);
-		GlStateManager.rotate(90F, 1.0f, 0.0f, 0.0f);
-		GlStateManager.rotate(90F, 0.0f, 0.0f, 1.0f);
-		modelRotY = Math.min(Math.abs(modelRotY), 30f) * Math.signum(modelRotY);
-		GlStateManager.rotate(modelRotX, 0.0f, 0.0f, -1.0f);
-		GlStateManager.rotate(modelRotY, 0.0f, -1.0f, 0.0f);
-		float sc = rectH / 8;
-		GlStateManager.scale(sc, -sc, sc);
-
-		Minecraft mc = FMLClientHandler.instance().getClient();
-		// false == isLeftHand
-		mc.getItemRenderer().renderItemSide(mc.player, itemToRender, TransformType.THIRD_PERSON_RIGHT_HAND, false);
-		GL11.glFrontFace(GL11.GL_CW);
-		mc.getItemRenderer().renderItemSide(mc.player, itemToRender, TransformType.THIRD_PERSON_RIGHT_HAND, false);
-		GL11.glFrontFace(GL11.GL_CCW);
-	}
-
-	private void renderArmor(
-			ItemStack itemToRender,
-			int rectX,
-			int rectY,
-			int rectW,
-			int rectH,
-			ItemType itemType,
-			float modelRotX,
-			float modelRotY) {
-		GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
-		GlStateManager.translate(rectX + rectW / 2, rectY + rectH / 2, 40F);
-		float defaultScale = 2F;
-		switch (itemType) {
-		case ARMOR_HEAD:
-			GlStateManager.scale(defaultScale, defaultScale, defaultScale);
-			GlStateManager.translate(3f, -22f, 0F);
-			break;
-		case ARMOR_BODY:
-			GlStateManager.scale(3F, 3F, 3F);
-			GlStateManager.translate(1f, -38f, 0F);
-			break;
-		case ARMOR_PANTS:
-			GlStateManager.scale(defaultScale, defaultScale, defaultScale);
-			GlStateManager.translate(1f, -45f, 0F);
-			break;
-		case ARMOR_BOOTS:
-			GlStateManager.scale(defaultScale, defaultScale, defaultScale);
-			GlStateManager.translate(1f, -55f, 0F);
-			break;
-		case WEAPON_BOW:
-			//case WEAPON_BIG_BOWGUN:
-			//case WEAPON_DOUBLE_SWORD:
-		case WEAPON_GREAT_SWORD:
-			//case WEAPON_GUNLANCE:
-		case WEAPON_HAMMER:
-		case WEAPON_HUNTING_HORN:
-			//case WEAPON_LANCE:
-		case WEAPON_LONG_SWORD:
-			//case WEAPON_SMALL_BOWGUN:
-			//case WEAPON_SWORD_AND_SHIELD:
-		case NO_OTHER:
-		default:
-			Assert.unreachable("Expected an armor, got {}", itemType);
-		}
-		GlStateManager.rotate(modelRotX, 0.0f, 1.0f, 0.0f);
-		GlStateManager.rotate(-modelRotY, 1.0f, 0.0f, 0.0f);
-		float sc = rectH / 2;
-		GlStateManager.scale(sc, sc, -sc);
-		EntityEquipmentSlot armorType = ((net.minecraft.item.ItemArmor) itemToRender.getItem()).armorType;
-
-		ResourceLocation texture = armorLayerProxy.getArmorResource(mc.player, itemToRender, armorType, null);
-		ModelBiped model = armorLayerProxy.getModelFromSlot(armorType);
-		model = ForgeHooksClient.getArmorModel(mc.player, itemToRender, armorType, model);
-		mc.getTextureManager().bindTexture(texture);
-		armorLayerProxy.setModelVisible(model);
-		armorLayerProxy.setModelSlotVisible(model, armorType);
-
-		if (model != null) {
-			model.render(mc.player, 0, 0, 0, 0, 0, 0.06125f);
-			GL11.glFrontFace(GL11.GL_CW);
-			model.render(mc.player, 0, 0, 0, 0, 0, 0.06125f);
-			GL11.glFrontFace(GL11.GL_CCW);
-		}
+		GL11.glPopMatrix();
 	}
 
 	private void drawBenchOverlay(TileHunterBench bench, int rectX, int rectY, int rectW) {
@@ -614,7 +546,7 @@ public class GuiHunterBench extends MHFCTabbedGui {
 		int burnTexY;
 
 		// Draw the foreground current heat indicator
-		GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+		GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 		mc.getTextureManager().bindTexture(BURN_BACKGROUND);
 		heat = Math.min(bench.getHeatStrength(), maxHeat);
 		burnTexVDiff = (float) (heat) / maxHeat;
@@ -632,22 +564,22 @@ public class GuiHunterBench extends MHFCTabbedGui {
 				burnTexVDiff);
 
 		if (bench.getRecipe() != null) {
-			GlStateManager.glLineWidth(1f);
+			GL11.glLineWidth(1f);
 			heat = bench.getRecipe().getRequiredHeat();
 			heat = Math.min(heat, maxHeat);
 			burnTexVDiff = (float) (heat) / maxHeat;
 			burnTexHeight = (int) (burnTexVDiff * burnHeight);
 			burnTexY = rectY + burnHeight - burnTexHeight;
-			GlStateManager.disableTexture2D();
-			GlStateManager.glLineWidth(2.0f);
-			GlStateManager.glBegin(GL11.GL_LINES);
-			GlStateManager.color(0.4f, 0.4f, 0.4f, 1.0f);
-			GlStateManager.glVertex3f(rectX + rectW + 4, burnTexY + 0.7f, this.zLevel);
-			GlStateManager.glVertex3f(rectX + rectW + 14, burnTexY + 0.7f, this.zLevel);
-			GlStateManager.glEnd();
-			GlStateManager.enableTexture2D();
+			GL11.glDisable(GL11.GL_TEXTURE_2D);
+			GL11.glLineWidth(2.0f);
+			GL11.glBegin(GL11.GL_LINES);
+			GL11.glColor4f(0.4f, 0.4f, 0.4f, 1.0f);
+			GL11.glVertex3f(rectX + rectW + 4, burnTexY + 0.7f, this.zLevel);
+			GL11.glVertex3f(rectX + rectW + 14, burnTexY + 0.7f, this.zLevel);
+			GL11.glEnd();
+			GL11.glEnable(GL11.GL_TEXTURE_2D);
 		}
-		GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+		GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
 		// Draw heat target
 		mc.getTextureManager().bindTexture(BURN_TARGET);
@@ -671,14 +603,12 @@ public class GuiHunterBench extends MHFCTabbedGui {
 		}
 		int remain = (int) Math.ceil(remaining * 14);
 		remaining = remain / 17f;
-
-		Tessellator t = Tessellator.getInstance();
-		VertexBuffer buffer = t.getBuffer();
-		buffer.begin(GL_QUADS, DefaultVertexFormats.POSITION_TEX);
-		buffer.pos(353, 159 - remain, this.zLevel).tex(0f, 14f / 17 - remaining).endVertex();
-		buffer.pos(353, 159, this.zLevel).tex(0f, 14f / 17).endVertex();
-		buffer.pos(370, 159, this.zLevel).tex(1f, 14f / 17).endVertex();
-		buffer.pos(370, 159 - remain, this.zLevel).tex(1f, 14f / 17 - remaining).endVertex();
+		Tessellator t = Tessellator.instance;
+		t.startDrawingQuads();
+		t.addVertexWithUV(353, 159 - remain, this.zLevel, 0f, 14f / 17 - remaining);
+		t.addVertexWithUV(353, 159, this.zLevel, 0f, 14f / 17);
+		t.addVertexWithUV(370, 159, this.zLevel, 1f, 14f / 17);
+		t.addVertexWithUV(370, 159 - remain, this.zLevel, 1f, 14f / 17 - remaining);
 		t.draw();
 
 		// draw the completition gauge
@@ -715,7 +645,7 @@ public class GuiHunterBench extends MHFCTabbedGui {
 
 	@Override
 	protected void drawTabBackgroundLayer() {
-		GlStateManager.color(1f, 1f, 1f, 1f);
+		GL11.glColor4f(1f, 1f, 1f, 1f);
 		this.mc.getTextureManager().bindTexture(MHFCRegQuestVisual.QUEST_BOARD_BACKGROUND);
 		int posX = guiLeft;
 		int posY = guiTop;

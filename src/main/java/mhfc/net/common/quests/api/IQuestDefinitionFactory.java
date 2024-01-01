@@ -4,9 +4,8 @@ import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonSerializationContext;
 
-import mhfc.net.common.util.io.IConverter;
+public interface IQuestDefinitionFactory {
+	public QuestDefinition buildQuestDescription(JsonElement json, JsonDeserializationContext context);
 
-public interface IQuestDefinitionFactory
-		extends
-		IConverter<JsonElement, JsonDeserializationContext, IQuestDefinition, JsonSerializationContext> {
+	public JsonElement serialize(QuestDefinition description, JsonSerializationContext context);
 }
