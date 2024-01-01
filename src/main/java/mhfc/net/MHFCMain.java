@@ -2,6 +2,7 @@ package mhfc.net;
 
 import java.util.List;
 
+import mhfc.net.common.config.MHFCConfigPotionId;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -117,7 +118,7 @@ public class MHFCMain {
 	}
 
 	@Mod.Instance(MHFCReference.main_modid)
-	protected static MHFCMain instance;
+    public static MHFCMain instance;
 
 	public static MHFCMain instance() {
 		return instance;
@@ -159,6 +160,7 @@ public class MHFCMain {
 
 	@Mod.EventHandler
 	protected void onPreInit(FMLPreInitializationEvent event) {
+        MHFCConfigPotionId.setupAndLoad(event);
 		FMLCommonHandler.instance().bus().register(connectionTracker);
 		MinecraftForge.EVENT_BUS.register(this);
 		ForgeChunkManager.setForcedChunkLoadingCallback(this, this::chunkLoadingCallback);
